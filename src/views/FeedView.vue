@@ -1,15 +1,17 @@
 <template>
   <div class="uc-feed">
     <template v-if="groupId">
-      <div v-if="group" class="uc-group-header">
-        <div class="uc-group-icon" :style="{ background: avatarColor(groupId) }">
+      <RouterLink v-if="group" :to="`/gruppi/${groupId}/dettagli`" class="uc-group-header">
+        <img v-if="group.photoUrl" :src="group.photoUrl" alt="" class="uc-group-icon uc-group-icon-photo" />
+        <div v-else class="uc-group-icon" :style="{ background: avatarColor(groupId) }">
           <v-icon icon="mdi-account-group" size="20" color="white" />
         </div>
         <div class="uc-group-header-text">
           <div class="uc-group-name">{{ group.name }}</div>
-          <div class="uc-group-meta">{{ group.memberIds.length }} partecipanti</div>
+          <div class="uc-group-meta">{{ group.memberIds.length }} partecipanti · tocca per i dettagli</div>
         </div>
-      </div>
+        <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
+      </RouterLink>
     </template>
     <h1 v-else class="uc-page-title">Feed</h1>
 
@@ -177,6 +179,8 @@ onUnmounted(unsubscribeAll)
   align-items: center;
   gap: 12px;
   padding: 4px 2px 16px;
+  text-decoration: none;
+  color: inherit;
 }
 
 .uc-group-icon {
@@ -187,6 +191,10 @@ onUnmounted(unsubscribeAll)
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.uc-group-icon-photo {
+  object-fit: cover;
 }
 
 .uc-group-header-text {

@@ -21,20 +21,35 @@ service cloud.firestore {
       allow read: if true;
 
       // Creazione: chi crea il gruppo deve inserirsi come unico membro
-      // iniziale ed essere indicato come createdBy.
+      // iniziale ed essere indicato come createdBy (che qui funge anche da
+      // "amministratore": può modificare i dati del gruppo ed espellere
+      // membri, sempre senza una vera verifica di identità).
       allow create: if request.resource.data.memberIds is list
                     && request.resource.data.memberIds.size() == 1
                     && request.resource.data.memberIds[0] == request.resource.data.createdBy
-                    && request.resource.data.keys().hasAll(['name', 'inviteCode', 'createdBy', 'memberIds', 'createdAt'])
+                    && request.resource.data.keys().hasAll(
+                         ['name', 'inviteCode', 'createdBy', 'memberIds', 'description', 'photoUrl', 'memberNicknames', 'createdAt']
+                       )
                     && request.resource.data.name is string
                     && request.resource.data.inviteCode is string
                     && request.resource.data.createdBy is string
+                    && request.resource.data.description is string
+                    && request.resource.data.memberNicknames is map
                     && request.resource.data.createdAt is timestamp;
 
-      // Update: consentito solo per aggiungere se stessi a memberIds
-      // (join tramite codice invito), nessun altro campo può cambiare.
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
-                    && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1;
+      // Update: due casi consentiti, entrambi solo strutturali (nessun modo
+      // di verificare "chi" sta scrivendo, coerente col limite dichiarato).
+      // 1) Adesione/uscita/espulsione: cambia solo memberIds (+/- 1 persona)
+      //    e la mappa memberNicknames che gli è abbinata.
+      // 2) Modifica dati gruppo: nome, descrizione, foto.
+      allow update: if
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberNicknames'])
+          && (request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
+              || request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1))
+        ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'photoUrl'])
+          && request.resource.data.name is string
+          && request.resource.data.description is string);
 
       allow delete: if false;
     }

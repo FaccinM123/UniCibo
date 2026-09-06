@@ -101,8 +101,13 @@ scripts/import-brand-recipes.mjs
     `{ type: 'cucinarlo' | 'mangiarlo' | 'nonMiPiace', updatedAt: Timestamp }`
   - `recipes/{id}/comments/{commentId}` — `{ text, authorNickname,
     authorLocalId, createdAt: Timestamp }`
-- `groups/{id}` — `name`, `inviteCode`, `createdBy`, `memberIds: string[]`,
-  `createdAt: Timestamp`
+- `groups/{id}` — `name`, `inviteCode`, `createdBy` (funge anche da
+  amministratore: unico che può modificare nome/descrizione/foto ed espellere
+  membri, sempre senza una vera verifica di identità), `memberIds: string[]`,
+  `description: string`, `photoUrl: string | null`,
+  `memberNicknames: { [userId]: string }` (snapshot del nickname al momento
+  dell'adesione, non aggiornato retroattivamente se il membro cambia
+  nickname — stessa logica di `authorNickname` sulle ricette), `createdAt: Timestamp`
 
 ## Limiti consapevoli (da spiegare all'orale)
 

@@ -4,7 +4,8 @@
 
     <div v-if="myGroups.length" class="uc-group-list">
       <RouterLink v-for="g in myGroups" :key="g.id" :to="`/gruppi/${g.id}`" class="uc-group-row">
-        <div class="uc-group-icon" :style="{ background: avatarColor(g.id) }">
+        <img v-if="g.photoUrl" :src="g.photoUrl" alt="" class="uc-group-icon uc-group-icon-photo" />
+        <div v-else class="uc-group-icon" :style="{ background: avatarColor(g.id) }">
           <v-icon icon="mdi-account-group" size="20" color="white" />
         </div>
         <div class="uc-group-row-text">
@@ -28,6 +29,19 @@
     </div>
 
     <div v-if="mode === 'crea'" class="uc-tab-panel">
+      <p class="uc-label">Immagine gruppo (opzionale)</p>
+      <input ref="fileInput" type="file" accept="image/*" class="uc-hidden-input" @change="onFileChange" />
+      <div v-if="!newGroupPhoto" class="uc-image-picker mb-4" @click="fileInput.click()">
+        <v-icon icon="mdi-image-plus-outline" size="24" />
+        <span>carica foto dalla galleria</span>
+      </div>
+      <div v-else class="uc-image-preview mb-4">
+        <img :src="newGroupPhoto" alt="Anteprima immagine gruppo" />
+        <button type="button" class="uc-image-remove" @click="newGroupPhoto = ''">
+          <v-icon icon="mdi-close" size="14" color="white" />
+        </button>
+      </div>
+
       <p class="uc-label">Nome gruppo</p>
       <v-text-field v-model="newGroupName" placeholder="Es. Coinquilini Via Rosmini" variant="outlined" density="comfortable" hide-details />
       <v-btn variant="flat" color="primary" class="uc-pill-btn mt-3" :loading="creating" :disabled="!newGroupName.trim()" @click="createGroup">
@@ -57,16 +71,31 @@ import {
   doc, updateDoc, arrayUnion, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
-import { getUserId, getJoinedGroupIds, addJoinedGroupId } from '@/identity.js'
+import { getUserId, getNickname, getJoinedGroupIds, addJoinedGroupId } from '@/identity.js'
 import { avatarColor } from '@/utils/avatar.js'
+import { fileToCompressedDataUrl } from '@/utils/image.js'
 
 const myGroups = ref([])
 const mode = ref('crea')
 const newGroupName = ref('')
+const newGroupPhoto = ref('')
 const joinCode = ref('')
 const creating = ref(false)
 const joining = ref(false)
 const joinError = ref('')
+const fileInput = ref(null)
+
+async function onFileChange(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  try {
+    newGroupPhoto.value = await fileToCompressedDataUrl(file)
+  } catch (err) {
+    console.error('Errore nel caricare la foto:', err)
+  } finally {
+    e.target.value = ''
+  }
+}
 
 onMounted(async () => {
   const ids = getJoinedGroupIds().slice(0, 10) // limite della clausola 'in' di Firestore
@@ -95,12 +124,16 @@ async function createGroup() {
       inviteCode: generateInviteCode(),
       createdBy: userId,
       memberIds: [userId],
+      description: '',
+      photoUrl: newGroupPhoto.value || null,
+      memberNicknames: { [userId]: getNickname() || 'Anonimo' },
       createdAt: serverTimestamp()
     }
     const docRef = await addDoc(collection(db, 'groups'), data)
     addJoinedGroupId(docRef.id)
     myGroups.value.push({ id: docRef.id, ...data })
     newGroupName.value = ''
+    newGroupPhoto.value = ''
     mode.value = 'crea'
   } catch (err) {
     console.error('Errore nel creare il gruppo:', err)
@@ -124,7 +157,8 @@ async function joinGroup() {
     const groupDoc = snap.docs[0]
     const userId = getUserId()
     await updateDoc(doc(db, 'groups', groupDoc.id), {
-      memberIds: arrayUnion(userId)
+      memberIds: arrayUnion(userId),
+      [`memberNicknames.${userId}`]: getNickname() || 'Anonimo'
     })
     addJoinedGroupId(groupDoc.id)
     myGroups.value.push({
@@ -265,5 +299,57 @@ async function joinGroup() {
   color: #b3261e;
   font-size: 13px;
   margin-top: 10px;
+}
+
+.uc-group-icon-photo {
+  object-fit: cover;
+}
+
+.uc-hidden-input {
+  display: none;
+}
+
+.uc-image-picker {
+  height: 90px;
+  border: 1.5px dashed var(--uc-border);
+  border-radius: var(--uc-radius-input);
+  background: var(--uc-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--uc-text-muted);
+  font-size: 11px;
+}
+
+.uc-image-preview {
+  position: relative;
+  height: 120px;
+  border-radius: var(--uc-radius-input);
+  overflow: hidden;
+}
+
+.uc-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.uc-image-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 </style>

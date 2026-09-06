@@ -48,6 +48,11 @@ export function addJoinedGroupId(groupId) {
   }
 }
 
+export function removeJoinedGroupId(groupId) {
+  const current = getJoinedGroupIds()
+  localStorage.setItem(JOINED_GROUPS_KEY, JSON.stringify(current.filter((id) => id !== groupId)))
+}
+
 // Bio e foto profilo: NON fanno parte dello schema Firestore (niente
 // collezione "users" prevista) e restano solo su questo dispositivo. Non
 // vengono quindi viste da altri utenti/dispositivi sui post pubblicati: è un
