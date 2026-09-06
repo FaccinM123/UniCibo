@@ -143,6 +143,9 @@ async function saveEdits() {
   }
 }
 
+// arrayRemove/deleteField: come arrayUnion, vanno oltre le slide del corso.
+// Tolgono l'id (e il suo nickname) da memberIds/memberNicknames senza dover
+// prima leggere l'intero documento gruppo.
 async function leaveGroup() {
   if (!confirm(`Lasciare il gruppo "${group.value.name}"?`)) return
   try {

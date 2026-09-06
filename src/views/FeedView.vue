@@ -101,6 +101,8 @@ async function loadGroupFeed(groupId) {
     where('groupId', '==', groupId),
     orderBy('createdAt', 'desc')
   )
+  // onSnapshot: va oltre le slide del corso, tiene il feed del gruppo
+  // aggiornato in tempo reale (nuovi post, modifiche, eliminazioni).
   unsubGroupRecipes = onSnapshot(q, (snap) => {
     groupRecipes.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     loading.value = false

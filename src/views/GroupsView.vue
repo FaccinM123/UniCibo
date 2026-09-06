@@ -156,6 +156,9 @@ async function joinGroup() {
     }
     const groupDoc = snap.docs[0]
     const userId = getUserId()
+    // arrayUnion: va oltre le slide del corso (letto/scritto come array
+    // completo), usato per aggiungersi a memberIds senza leggere prima il
+    // documento e rischiare di sovrascrivere adesioni concorrenti.
     await updateDoc(doc(db, 'groups', groupDoc.id), {
       memberIds: arrayUnion(userId),
       [`memberNicknames.${userId}`]: getNickname() || 'Anonimo'

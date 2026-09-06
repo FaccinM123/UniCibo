@@ -55,6 +55,8 @@ const displayNickname = computed(() => {
 
 onMounted(() => {
   const q = query(collection(db, 'recipes'), where('authorLocalId', '==', props.memberId))
+  // onSnapshot: va oltre le slide del corso, usato per coerenza con le altre
+  // viste (si aggiorna se la persona modifica/elimina un post nel frattempo).
   unsub = onSnapshot(q, (snap) => {
     posts.value = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
