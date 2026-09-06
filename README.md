@@ -91,6 +91,13 @@ scripts/import-brand-recipes.mjs
 
 ## Modello dati Firestore
 
+Nota sulle ricette "brand": a livello di dato restano `source: 'brand'` (lo
+schema lo richiede), ma nell'interfaccia non si presentano come contenuto
+ufficiale — nickname casuale (vedi `FAKE_NICKNAMES` in
+`scripts/import-brand-recipes.mjs`), nessuna etichetta con la fonte esterna.
+Si mescolano nel feed come post di esempio, indistinguibili da un post di
+gruppo vero.
+
 - `recipes/{id}` — `title`, `imageUrl`, `ingredients: string[]`,
   `steps: string[]` (descrizione e procedimento uniti in un solo campo),
   `source: 'brand' | 'group'`, `brandName: string | null`,

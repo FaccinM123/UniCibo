@@ -1,5 +1,8 @@
 // Script UNA TANTUM: importa un piccolo set di ricette da Spoonacular
 // e le scrive in Firestore come documenti "brand" (source: 'brand').
+// A livello di dato restano "brand" (lo schema lo richiede), ma nell'app non
+// si presentano come contenuto ufficiale: nickname casuale, nessuna etichetta
+// visibile con la fonte esterna — sono solo post di esempio nel feed.
 //
 // NON viene mai chiamato dall'app in produzione: Spoonacular ha un piano
 // gratuito da 50 punti/giorno (verificato), troppo poco per chiamate in
@@ -24,6 +27,18 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 const SERVICE_ACCOUNT_PATH = new URL('./serviceAccountKey.json', import.meta.url)
 const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY
 const NUMBER_OF_RECIPES = 20 // pacchetto curato 15-25 ricette, resta sotto i 50 punti/giorno gratuiti
+
+// Nickname di fantasia: le ricette importate non devono leggersi come "post
+// ufficiali del brand", ma mescolarsi nel feed come normali post di gruppo
+// pubblicati da studenti immaginari (stesso registro degli altri membri di
+// esempio del progetto).
+const FAKE_NICKNAMES = [
+  'Giulia_R', 'Elena.T', 'Sam_erasmus', 'Luca92', 'Fede.B',
+  'Anna_K', 'Chiara99', 'Davide.M', 'Mia_erasmus', 'Tommy87'
+]
+function randomFakeNickname() {
+  return FAKE_NICKNAMES[Math.floor(Math.random() * FAKE_NICKNAMES.length)]
+}
 
 if (!SPOONACULAR_API_KEY) {
   console.error('Manca SPOONACULAR_API_KEY nel file .env. Interrompo.')
@@ -68,7 +83,7 @@ function mapToUniCiboRecipe(spoonRecipe) {
     source: 'brand',
     brandName: spoonRecipe.sourceName || spoonRecipe.creditsText || 'Spoonacular',
     groupId: null,
-    authorNickname: 'UniCibo',
+    authorNickname: randomFakeNickname(),
     authorLocalId: null,
     reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
     createdAt: FieldValue.serverTimestamp()

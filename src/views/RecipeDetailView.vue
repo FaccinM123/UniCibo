@@ -18,11 +18,9 @@
       >
         {{ recipe.authorNickname || 'Anonimo' }}
       </RouterLink>
-      <span v-else class="uc-detail-author-name">{{ recipe.authorNickname || 'UniCibo' }}</span>
+      <span v-else class="uc-detail-author-name">{{ recipe.authorNickname || 'Anonimo' }}</span>
       <span class="uc-detail-meta">· {{ formattedDate }}</span>
     </div>
-
-    <span v-if="originLabel" class="uc-chip">{{ originLabel }}</span>
 
     <div class="uc-detail-reactions">
       <ReactionBar :recipe-id="id" />
@@ -83,11 +81,6 @@ function toggleSave() {
 onMounted(async () => {
   const snap = await getDoc(doc(db, 'recipes', props.id))
   recipe.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
-})
-
-const originLabel = computed(() => {
-  if (!recipe.value) return ''
-  return recipe.value.source === 'brand' ? recipe.value.brandName : null
 })
 
 // Vedi RecipeCard.vue: la foto profilo è locale al dispositivo, quindi la
@@ -171,16 +164,6 @@ const formattedDate = computed(() => {
   color: var(--uc-text-muted);
 }
 
-.uc-chip {
-  display: inline-flex;
-  margin: 0 16px 12px;
-  padding: 5px 12px;
-  background: var(--uc-secondary-container);
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--uc-text);
-}
 
 .uc-detail-reactions {
   display: flex;

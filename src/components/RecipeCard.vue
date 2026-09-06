@@ -13,7 +13,7 @@
         >
           {{ recipe.authorNickname || 'Anonimo' }}
         </RouterLink>
-        <span v-else class="uc-card-author">{{ recipe.authorNickname || 'UniCibo' }}</span>
+        <span v-else class="uc-card-author">{{ recipe.authorNickname || 'Anonimo' }}</span>
         <div class="uc-card-meta">
           {{ formattedDate }}
           <span v-if="originLabel"> · {{ originLabel }}</span>
@@ -70,8 +70,12 @@ function toggleSave() {
   saved.value = toggleSavedRecipeId(props.recipe.id)
 }
 
+// Le ricette "brand" (source: 'brand', importate da Spoonacular — vedi
+// scripts/import-brand-recipes.mjs) restano tali nello schema, ma non si
+// presentano come contenuto ufficiale: niente etichetta con la fonte
+// esterna, si mescolano nel feed come i post di gruppo.
 const originLabel = computed(() => {
-  return props.recipe.source === 'brand' ? props.recipe.brandName : props.recipe.groupName
+  return props.recipe.source === 'group' ? props.recipe.groupName : null
 })
 
 // La foto profilo resta solo su questo dispositivo (vedi identity.js): la
