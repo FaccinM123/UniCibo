@@ -1,0 +1,173 @@
+<template>
+  <article class="uc-card">
+    <div class="uc-card-header">
+      <div class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
+        {{ avatarInitial(recipe.authorNickname) }}
+      </div>
+      <div class="uc-card-header-text">
+        <div class="uc-card-author">{{ recipe.authorNickname || 'UniCibo' }}</div>
+        <div class="uc-card-meta">
+          {{ formattedDate }}
+          <span v-if="originLabel"> · {{ originLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <RouterLink :to="`/ricetta/${recipe.id}`" class="uc-card-body-link">
+      <h3 class="uc-card-title">{{ recipe.title }}</h3>
+      <div class="uc-card-image" :class="{ 'uc-card-image--placeholder': !recipe.imageUrl }">
+        <img v-if="recipe.imageUrl" :src="recipe.imageUrl" :alt="recipe.title" loading="lazy" />
+      </div>
+    </RouterLink>
+
+    <div class="uc-card-actions">
+      <ReactionBar :recipe-id="recipe.id" />
+      <span class="uc-card-spacer" />
+      <button type="button" class="uc-comment-toggle" @click="expanded = !expanded">
+        <v-icon icon="mdi-comment-outline" size="16" />
+        <span>Commenti</span>
+      </button>
+    </div>
+
+    <div v-if="expanded" class="uc-card-comments">
+      <CommentList :recipe-id="recipe.id" />
+    </div>
+  </article>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import ReactionBar from '@/components/ReactionBar.vue'
+import CommentList from '@/components/CommentList.vue'
+import { avatarColor, avatarInitial } from '@/utils/avatar.js'
+
+const props = defineProps({
+  recipe: { type: Object, required: true }
+})
+
+const expanded = ref(false)
+
+const originLabel = computed(() => {
+  return props.recipe.source === 'brand' ? props.recipe.brandName : props.recipe.groupName
+})
+
+const formattedDate = computed(() => {
+  const ts = props.recipe.createdAt
+  const date = ts?.toDate ? ts.toDate() : null
+  if (!date) return ''
+  return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+})
+</script>
+
+<style scoped>
+.uc-card {
+  background: var(--uc-surface);
+  border-radius: var(--uc-radius-card);
+  box-shadow: var(--uc-shadow-card);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.uc-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 8px;
+}
+
+.uc-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.uc-card-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.uc-card-author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--uc-text);
+}
+
+.uc-card-meta {
+  font-size: 11.5px;
+  color: var(--uc-text-muted);
+}
+
+.uc-card-body-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.uc-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  padding: 2px 14px 8px;
+  margin: 0;
+  color: var(--uc-text);
+}
+
+.uc-card-image {
+  height: 170px;
+  margin: 0 14px 10px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.uc-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.uc-card-image--placeholder {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--uc-primary-container) 0 10px,
+    oklch(89% 0.035 58) 10px 20px
+  );
+}
+
+.uc-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 12px;
+}
+
+.uc-card-spacer {
+  flex: 1;
+}
+
+.uc-comment-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: var(--uc-radius-pill);
+  cursor: pointer;
+  color: var(--uc-text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+}
+
+.uc-card-comments {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--uc-border);
+}
+</style>

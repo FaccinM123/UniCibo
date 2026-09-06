@@ -1,0 +1,37 @@
+/* Design tokens presi dal mockup Hi-Fi fornito per il rifacimento visivo di
+   UniCibo. Usati negli stili scoped dei componenti per fedeltà cromatica
+   esatta al mockup; il tema Vuetify in main.js usa equivalenti hex per la
+   color-math interna dei componenti (varianti, ripple), questi custom
+   properties restano la fonte di verità per lo stile "a mano" (card, chip,
+   pillole, top bar). */
+:root {
+  --uc-bg: oklch(97% 0.012 60);
+  --uc-surface: oklch(99% 0.006 60);
+  --uc-text: oklch(23% 0.02 60);
+  --uc-text-muted: oklch(50% 0.015 60);
+  --uc-border: oklch(88% 0.012 60);
+
+  --uc-primary: oklch(64% 0.17 58);
+  --uc-primary-strong: oklch(48% 0.15 58);
+  --uc-primary-container: oklch(93% 0.045 58);
+
+  --uc-secondary: oklch(56% 0.13 145);
+  --uc-secondary-container: oklch(91% 0.045 145);
+
+  --uc-topbar-bg: #f5fbf8;
+  --uc-backdrop-gradient: linear-gradient(165deg, #53daa8 0%, #88bdda 100%);
+
+  --uc-delete-bg: oklch(93% 0.06 25);
+  --uc-delete-fg: oklch(45% 0.18 25);
+
+  --uc-radius-pill: 999px;
+  --uc-radius-card: 14px;
+  --uc-radius-input: 10px;
+
+  --uc-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body {
+  background: var(--uc-bg);
+  color: var(--uc-text);
+}

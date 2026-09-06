@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+.env.save
+.DS_Store
+scripts/serviceAccountKey.json
+
+# materiale personale di riferimento, non parte del progetto
+*.mov
+
+# stato di sessione locale degli strumenti, non del progetto
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

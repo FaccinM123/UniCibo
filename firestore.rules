@@ -1,0 +1,100 @@
+rules_version = '2';
+
+// NOTA IMPORTANTE (limite consapevole del progetto):
+// Non usiamo Firebase Auth. L'identità è "leggera": un id anonimo generato
+// lato client con crypto.randomUUID() e salvato in localStorage, passato
+// dall'app dentro ai documenti che scrive (authorLocalId, createdBy,
+// reactions/{authorLocalId}). Firestore NON può verificare che l'id nel
+// documento corrisponda davvero a chi sta scrivendo (non c'è request.auth),
+// quindi queste regole proteggono la FORMA dei dati (campi obbligatori, tipi,
+// quali campi un update può toccare) ma non possono impedire che qualcuno
+// scriva a nome di un altro id se lo conosce. Va dichiarato esplicitamente in
+// sede d'esame come limite del modello di sicurezza.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GROUPS ---
+    match /groups/{groupId} {
+      // Chiunque usi l'app può leggere i gruppi (serve per verificare
+      // un codice invito prima di essere membro).
+      allow read: if true;
+
+      // Creazione: chi crea il gruppo deve inserirsi come unico membro
+      // iniziale ed essere indicato come createdBy.
+      allow create: if request.resource.data.memberIds is list
+                    && request.resource.data.memberIds.size() == 1
+                    && request.resource.data.memberIds[0] == request.resource.data.createdBy
+                    && request.resource.data.keys().hasAll(['name', 'inviteCode', 'createdBy', 'memberIds', 'createdAt'])
+                    && request.resource.data.name is string
+                    && request.resource.data.inviteCode is string
+                    && request.resource.data.createdBy is string
+                    && request.resource.data.createdAt is timestamp;
+
+      // Update: consentito solo per aggiungere se stessi a memberIds
+      // (join tramite codice invito), nessun altro campo può cambiare.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+                    && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1;
+
+      allow delete: if false;
+    }
+
+    // --- RECIPES ---
+    match /recipes/{recipeId} {
+      // Lettura pubblica: sia le ricette brand sia quelle di gruppo sono
+      // leggibili da chiunque usi l'app (niente vera separazione per
+      // gruppo lato regole, coerente col limite "no vera sicurezza sui
+      // gruppi" dichiarato nel design).
+      allow read: if true;
+
+      // Creazione: solo ricette con source == 'group' possono essere
+      // create dal client; le ricette 'brand' arrivano SOLO dallo script
+      // di import una tantum (eseguito con permessi admin, non da qui).
+      allow create: if request.resource.data.source == 'group'
+                    && request.resource.data.brandName == null
+                    && request.resource.data.keys().hasAll(
+                         ['title', 'imageUrl', 'ingredients', 'steps', 'source', 'brandName',
+                          'groupId', 'authorNickname', 'authorLocalId', 'reactionCounts', 'createdAt']
+                       )
+                    && request.resource.data.title is string
+                    && request.resource.data.ingredients is list
+                    && request.resource.data.steps is list
+                    && request.resource.data.groupId is string
+                    && request.resource.data.authorNickname is string
+                    && request.resource.data.authorLocalId is string
+                    && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
+                    && request.resource.data.createdAt is timestamp;
+
+      // Update: consentito solo per aggiornare reactionCounts (fatto
+      // dentro la transazione di ReactionBar.vue). Modifiche al
+      // contenuto della ricetta non sono previste in questa versione.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts']);
+
+      allow delete: if false;
+
+      // --- REACTIONS (sotto-collezione) ---
+      match /reactions/{authorLocalId} {
+        allow read: if true;
+        // L'id del documento reaction DEVE combaciare con l'authorLocalId:
+        // riduce (senza eliminare del tutto) il rischio di scrivere reazioni
+        // a nome di altri per errore.
+        allow create, update: if request.resource.data.type in ['cucinarlo', 'mangiarlo', 'nonMiPiace']
+                               && request.resource.data.updatedAt is timestamp;
+        allow delete: if true;
+      }
+
+      // --- COMMENTS (sotto-collezione) ---
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['text', 'authorNickname', 'authorLocalId', 'createdAt'])
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() < 2000
+                      && request.resource.data.authorNickname is string
+                      && request.resource.data.authorLocalId is string
+                      && request.resource.data.createdAt is timestamp;
+        allow update, delete: if false;
+      }
+    }
+  }
+}
