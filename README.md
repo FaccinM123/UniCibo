@@ -96,7 +96,11 @@ scripts/import-brand-recipes.mjs
   `source: 'brand' | 'group'`, `brandName: string | null`,
   `groupId: string | null`, `authorNickname`, `authorLocalId`,
   `reactionCounts: { cucinarlo, mangiarlo, nonMiPiace }` (contatore
-  denormalizzato), `createdAt: Timestamp`
+  denormalizzato), `createdAt: Timestamp`. Modificabile (titolo/immagine/
+  ingredienti/procedimento/gruppo) ed eliminabile dall'autore tramite
+  "Gestione post" — anche qui nessuna vera verifica di identità: le regole
+  permettono la modifica/eliminazione a chiunque conosca l'id del documento,
+  l'interfaccia mostra i pulsanti solo sui post dell'utente stesso.
   - `recipes/{id}/reactions/{authorLocalId}` — una reazione per utente:
     `{ type: 'cucinarlo' | 'mangiarlo' | 'nonMiPiace', updatedAt: Timestamp }`
   - `recipes/{id}/comments/{commentId}` — `{ text, authorNickname,
@@ -108,6 +112,10 @@ scripts/import-brand-recipes.mjs
   `memberNicknames: { [userId]: string }` (snapshot del nickname al momento
   dell'adesione, non aggiornato retroattivamente se il membro cambia
   nickname — stessa logica di `authorNickname` sulle ricette), `createdAt: Timestamp`
+
+I post salvati (bookmark) sono puramente locali (`localStorage`, come bio e
+foto profilo): non fanno parte dello schema Firestore perché sono una lista
+personale che nessun altro deve vedere.
 
 ## Limiti consapevoli (da spiegare all'orale)
 

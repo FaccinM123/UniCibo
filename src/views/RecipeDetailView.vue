@@ -11,13 +11,31 @@
       <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
         {{ avatarInitial(recipe.authorNickname) }}
       </div>
-      <span class="uc-detail-author-name">{{ recipe.authorNickname || 'UniCibo' }}</span>
+      <RouterLink
+        v-if="recipe.authorLocalId"
+        :to="{ path: `/membro/${recipe.authorLocalId}`, query: { nickname: recipe.authorNickname } }"
+        class="uc-detail-author-name"
+      >
+        {{ recipe.authorNickname || 'Anonimo' }}
+      </RouterLink>
+      <span v-else class="uc-detail-author-name">{{ recipe.authorNickname || 'UniCibo' }}</span>
       <span class="uc-detail-meta">· {{ formattedDate }}</span>
     </div>
 
     <span v-if="originLabel" class="uc-chip">{{ originLabel }}</span>
 
-    <ReactionBar :recipe-id="id" class="uc-detail-reactions" />
+    <div class="uc-detail-reactions">
+      <ReactionBar :recipe-id="id" />
+      <button
+        type="button"
+        class="uc-save-toggle"
+        :class="{ 'uc-save-toggle--active': saved }"
+        aria-label="Salva ricetta"
+        @click="toggleSave"
+      >
+        <v-icon :icon="saved ? 'mdi-bookmark' : 'mdi-bookmark-outline'" size="19" />
+      </button>
+    </div>
 
     <section v-if="recipe.ingredients?.length" class="uc-detail-section">
       <h2 class="uc-label">Ingredienti</h2>
@@ -49,14 +67,19 @@ import { db } from '@/firebase.js'
 import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
-import { getUserId, getAvatarPhoto } from '@/identity.js'
+import { getUserId, getAvatarPhoto, isRecipeSaved, toggleSavedRecipeId } from '@/identity.js'
 
 const props = defineProps({
   id: { type: String, required: true }
 })
 
 const recipe = ref(null)
+const saved = ref(isRecipeSaved(props.id))
 let unsub = null
+
+function toggleSave() {
+  saved.value = toggleSavedRecipeId(props.id)
+}
 
 onMounted(() => {
   const ref_ = doc(db, 'recipes', props.id)
@@ -149,6 +172,7 @@ const formattedDate = computed(() => {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--uc-text);
+  text-decoration: none;
 }
 
 .uc-detail-meta {
@@ -168,7 +192,29 @@ const formattedDate = computed(() => {
 }
 
 .uc-detail-reactions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 0 16px 12px;
+}
+
+.uc-save-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--uc-radius-pill);
+  cursor: pointer;
+  color: var(--uc-text-muted);
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+}
+
+.uc-save-toggle--active {
+  color: var(--uc-primary-strong);
+  background: var(--uc-primary-container);
 }
 
 .uc-detail-section {

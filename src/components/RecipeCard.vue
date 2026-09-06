@@ -6,7 +6,14 @@
         {{ avatarInitial(recipe.authorNickname) }}
       </div>
       <div class="uc-card-header-text">
-        <div class="uc-card-author">{{ recipe.authorNickname || 'UniCibo' }}</div>
+        <RouterLink
+          v-if="recipe.authorLocalId"
+          :to="{ path: `/membro/${recipe.authorLocalId}`, query: { nickname: recipe.authorNickname } }"
+          class="uc-card-author"
+        >
+          {{ recipe.authorNickname || 'Anonimo' }}
+        </RouterLink>
+        <span v-else class="uc-card-author">{{ recipe.authorNickname || 'UniCibo' }}</span>
         <div class="uc-card-meta">
           {{ formattedDate }}
           <span v-if="originLabel"> · {{ originLabel }}</span>
@@ -24,6 +31,15 @@
     <div class="uc-card-actions">
       <ReactionBar :recipe-id="recipe.id" />
       <span class="uc-card-spacer" />
+      <button
+        type="button"
+        class="uc-save-toggle"
+        :class="{ 'uc-save-toggle--active': saved }"
+        aria-label="Salva ricetta"
+        @click="toggleSave"
+      >
+        <v-icon :icon="saved ? 'mdi-bookmark' : 'mdi-bookmark-outline'" size="18" />
+      </button>
       <button type="button" class="uc-comment-toggle" @click="expanded = !expanded">
         <v-icon icon="mdi-comment-outline" size="16" />
         <span>Commenti</span>
@@ -41,13 +57,18 @@ import { ref, computed } from 'vue'
 import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
-import { getUserId, getAvatarPhoto } from '@/identity.js'
+import { getUserId, getAvatarPhoto, isRecipeSaved, toggleSavedRecipeId } from '@/identity.js'
 
 const props = defineProps({
   recipe: { type: Object, required: true }
 })
 
 const expanded = ref(false)
+const saved = ref(isRecipeSaved(props.recipe.id))
+
+function toggleSave() {
+  saved.value = toggleSavedRecipeId(props.recipe.id)
+}
 
 const originLabel = computed(() => {
   return props.recipe.source === 'brand' ? props.recipe.brandName : props.recipe.groupName
@@ -109,6 +130,7 @@ const formattedDate = computed(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--uc-text);
+  text-decoration: none;
 }
 
 .uc-card-meta {
@@ -161,6 +183,24 @@ const formattedDate = computed(() => {
 
 .uc-card-spacer {
   flex: 1;
+}
+
+.uc-save-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--uc-radius-pill);
+  cursor: pointer;
+  color: var(--uc-text-muted);
+  background: transparent;
+  border: none;
+}
+
+.uc-save-toggle--active {
+  color: var(--uc-primary-strong);
+  background: var(--uc-primary-container);
 }
 
 .uc-comment-toggle {

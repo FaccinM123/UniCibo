@@ -10,6 +10,7 @@ const USER_ID_KEY = 'unicibo_user_id'
 const JOINED_GROUPS_KEY = 'unicibo_joined_group_ids'
 const BIO_KEY = 'unicibo_bio'
 const AVATAR_PHOTO_KEY = 'unicibo_avatar_photo'
+const SAVED_RECIPES_KEY = 'unicibo_saved_recipe_ids'
 
 export function getUserId() {
   let id = localStorage.getItem(USER_ID_KEY)
@@ -76,4 +77,30 @@ export function setAvatarPhoto(dataUrl) {
   } else {
     localStorage.removeItem(AVATAR_PHOTO_KEY)
   }
+}
+
+// Post salvati: come bio/foto, restano solo su questo dispositivo. È una
+// lista puramente personale (nessuno vede cosa hai salvato), quindi non ha
+// bisogno di stare su Firestore.
+
+export function getSavedRecipeIds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVED_RECIPES_KEY) || '[]')
+    return Array.isArray(raw) ? raw : []
+  } catch {
+    return []
+  }
+}
+
+export function isRecipeSaved(recipeId) {
+  return getSavedRecipeIds().includes(recipeId)
+}
+
+export function toggleSavedRecipeId(recipeId) {
+  const current = getSavedRecipeIds()
+  const next = current.includes(recipeId)
+    ? current.filter((id) => id !== recipeId)
+    : [...current, recipeId]
+  localStorage.setItem(SAVED_RECIPES_KEY, JSON.stringify(next))
+  return next.includes(recipeId)
 }

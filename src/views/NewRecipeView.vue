@@ -1,6 +1,6 @@
 <template>
   <div class="uc-form-page">
-    <h1 class="uc-page-title">Nuova ricetta</h1>
+    <h1 class="uc-page-title">{{ editingId ? 'Modifica ricetta' : 'Nuova ricetta' }}</h1>
 
     <v-alert v-if="!myGroups.length" type="warning" variant="tonal" class="mb-4">
       Devi far parte di almeno un gruppo per pubblicare una ricetta.
@@ -61,7 +61,7 @@
         :loading="saving"
         :disabled="!title.trim() || !groupId"
       >
-        Pubblica
+        {{ editingId ? 'Salva modifiche' : 'Pubblica' }}
       </v-btn>
     </form>
   </div>
@@ -70,7 +70,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { collection, addDoc, query, where, getDocs, documentId, serverTimestamp } from 'firebase/firestore'
+import {
+  collection, addDoc, updateDoc, doc, getDoc,
+  query, where, getDocs, documentId, serverTimestamp
+} from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getNickname, getJoinedGroupIds } from '@/identity.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
@@ -87,12 +90,26 @@ const ingredientsRaw = ref('')
 const stepsRaw = ref('')
 const saving = ref(false)
 const fileInput = ref(null)
+const editingId = ref(route.query.edit || null)
 
 onMounted(async () => {
   const ids = getJoinedGroupIds().slice(0, 10) // limite della clausola 'in' di Firestore
   if (!ids.length) return
   const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids)))
   myGroups.value = snap.docs.map((d) => ({ id: d.id, name: d.data().name }))
+
+  if (editingId.value) {
+    const snapRecipe = await getDoc(doc(db, 'recipes', editingId.value))
+    if (snapRecipe.exists()) {
+      const r = snapRecipe.data()
+      title.value = r.title || ''
+      imageUrl.value = r.imageUrl || ''
+      ingredientsRaw.value = (r.ingredients || []).join('\n')
+      stepsRaw.value = (r.steps || []).join('\n')
+      groupId.value = r.groupId
+    }
+    return
+  }
 
   const preselected = route.query.groupId
   if (preselected && myGroups.value.some((g) => g.id === preselected)) {
@@ -120,20 +137,28 @@ async function submit() {
   if (!title.value.trim() || !groupId.value) return
   saving.value = true
   try {
-    const docRef = await addDoc(collection(db, 'recipes'), {
+    const content = {
       title: title.value.trim(),
       imageUrl: imageUrl.value || null,
       ingredients: ingredientsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
       steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
-      source: 'group',
-      brandName: null,
-      groupId: groupId.value,
-      authorNickname: getNickname() || 'Anonimo',
-      authorLocalId: getUserId(),
-      reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
-      createdAt: serverTimestamp()
-    })
-    router.push(`/ricetta/${docRef.id}`)
+      groupId: groupId.value
+    }
+    if (editingId.value) {
+      await updateDoc(doc(db, 'recipes', editingId.value), content)
+      router.push(`/ricetta/${editingId.value}`)
+    } else {
+      const docRef = await addDoc(collection(db, 'recipes'), {
+        ...content,
+        source: 'group',
+        brandName: null,
+        authorNickname: getNickname() || 'Anonimo',
+        authorLocalId: getUserId(),
+        reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+        createdAt: serverTimestamp()
+      })
+      router.push(`/ricetta/${docRef.id}`)
+    }
   } catch (err) {
     console.error('Errore nel pubblicare la ricetta:', err)
   } finally {

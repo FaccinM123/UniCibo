@@ -21,7 +21,16 @@
         <v-text-field v-model="nickname" variant="outlined" density="comfortable" hide-details class="mb-4" />
 
         <p class="uc-label">Descrizione</p>
-        <v-textarea v-model="bio" placeholder="Racconta qualcosa di te..." variant="outlined" rows="3" hide-details />
+        <v-textarea v-model="bio" placeholder="Racconta qualcosa di te..." variant="outlined" rows="3" hide-details class="mb-4" />
+
+        <RouterLink to="/gestione-post" class="uc-management-link" @click="close">
+          <v-icon icon="mdi-view-grid-outline" size="20" color="var(--uc-primary-strong)" />
+          <div class="uc-management-link-text">
+            <div class="uc-management-link-title">Gestione post</div>
+            <div class="uc-management-link-subtitle">I tuoi post e i post salvati</div>
+          </div>
+          <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
+        </RouterLink>
       </v-card-text>
 
       <v-card-actions class="pt-0">
@@ -172,5 +181,31 @@ function save() {
   color: #b3261e;
   font-size: 12.5px;
   margin: 8px 0 0;
+}
+
+.uc-management-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--uc-bg);
+  border-radius: 12px;
+  text-decoration: none;
+}
+
+.uc-management-link-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.uc-management-link-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--uc-text);
+}
+
+.uc-management-link-subtitle {
+  font-size: 11.5px;
+  color: var(--uc-text-muted);
 }
 </style>

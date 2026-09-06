@@ -42,8 +42,10 @@
     <h2 class="uc-label">Partecipanti</h2>
     <div class="uc-member-list">
       <div v-for="m in members" :key="m.id" class="uc-member-row">
-        <div class="uc-member-avatar" :style="{ background: avatarColor(m.id) }">{{ avatarInitial(m.nickname) }}</div>
-        <div class="uc-member-name">{{ m.nickname }}</div>
+        <RouterLink :to="{ path: `/membro/${m.id}`, query: { nickname: m.nickname } }" class="uc-member-link">
+          <div class="uc-member-avatar" :style="{ background: avatarColor(m.id) }">{{ avatarInitial(m.nickname) }}</div>
+          <div class="uc-member-name">{{ m.nickname }}</div>
+        </RouterLink>
         <span v-if="m.isAdmin" class="uc-admin-badge">Amministratore</span>
         <button v-if="isAdmin && !m.isSelf" type="button" class="uc-remove-btn" aria-label="Espelli membro" @click="removeMember(m.id)">
           <v-icon icon="mdi-account-remove-outline" size="18" />
@@ -316,6 +318,15 @@ async function removeMember(memberId) {
   background: var(--uc-surface);
   border-radius: 12px;
   box-shadow: var(--uc-shadow-card);
+}
+
+.uc-member-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
 }
 
 .uc-member-avatar {

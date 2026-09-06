@@ -80,12 +80,18 @@ service cloud.firestore {
                     && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
                     && request.resource.data.createdAt is timestamp;
 
-      // Update: consentito solo per aggiornare reactionCounts (fatto
-      // dentro la transazione di ReactionBar.vue). Modifiche al
-      // contenuto della ricetta non sono previste in questa versione.
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts']);
+      // Update: reactionCounts (transazione di ReactionBar.vue) oppure
+      // modifica dei contenuti da "Gestione post" (titolo/immagine/
+      // ingredienti/procedimento/gruppo di destinazione). source, brandName,
+      // authorNickname/authorLocalId e createdAt restano immutabili.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                      ['reactionCounts', 'title', 'imageUrl', 'ingredients', 'steps', 'groupId']
+                    );
 
-      allow delete: if false;
+      // Eliminazione: nessuna verifica di identità possibile (stesso limite
+      // dichiarato sopra), l'interfaccia mostra "Elimina" solo sui post
+      // dell'utente stesso in "Gestione post".
+      allow delete: if true;
 
       // --- REACTIONS (sotto-collezione) ---
       match /reactions/{authorLocalId} {
