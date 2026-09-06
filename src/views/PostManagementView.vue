@@ -46,8 +46,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc } from 'firebase/firestore'
+import { ref, watch, onMounted } from 'vue'
+import { collection, query, where, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getSavedRecipeIds } from '@/identity.js'
 
@@ -56,25 +56,22 @@ const myPosts = ref([])
 const savedPosts = ref([])
 const loadingMine = ref(true)
 const loadingSaved = ref(true)
-let unsubMine = null
 
 function sortByDateDesc(list) {
   return list.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
 }
 
-onMounted(() => {
+async function loadMine() {
+  loadingMine.value = true
   const q = query(collection(db, 'recipes'), where('authorLocalId', '==', getUserId()))
-  // onSnapshot: va oltre le slide del corso, così "I miei post" si aggiorna
-  // subito dopo una modifica o un'eliminazione.
-  unsubMine = onSnapshot(q, (snap) => {
-    myPosts.value = sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    loadingMine.value = false
-  })
-  loadSaved()
-})
+  const snap = await getDocs(q)
+  myPosts.value = sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  loadingMine.value = false
+}
 
-onUnmounted(() => {
-  unsubMine && unsubMine()
+onMounted(() => {
+  loadMine()
+  loadSaved()
 })
 
 async function loadSaved() {
@@ -95,6 +92,9 @@ async function deletePost(id) {
   if (!confirm('Eliminare definitivamente questo post?')) return
   try {
     await deleteDoc(doc(db, 'recipes', id))
+    // Niente onSnapshot: togliamo subito il post dalla lista locale invece
+    // di aspettare un ascoltatore che rilevi la cancellazione.
+    myPosts.value = myPosts.value.filter((p) => p.id !== id)
   } catch (err) {
     console.error('Errore nell\'eliminare il post:', err)
   }

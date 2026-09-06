@@ -26,9 +26,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getAvatarPhoto } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
@@ -40,7 +40,6 @@ const props = defineProps({
 const route = useRoute()
 const posts = ref([])
 const loading = ref(true)
-let unsub = null
 
 const isMe = computed(() => props.memberId === getUserId())
 const avatarPhoto = computed(() => (isMe.value ? getAvatarPhoto() : ''))
@@ -53,20 +52,13 @@ const displayNickname = computed(() => {
   return posts.value[0]?.authorNickname || route.query.nickname || 'Utente'
 })
 
-onMounted(() => {
+onMounted(async () => {
   const q = query(collection(db, 'recipes'), where('authorLocalId', '==', props.memberId))
-  // onSnapshot: va oltre le slide del corso, usato per coerenza con le altre
-  // viste (si aggiorna se la persona modifica/elimina un post nel frattempo).
-  unsub = onSnapshot(q, (snap) => {
-    posts.value = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
-    loading.value = false
-  })
-})
-
-onUnmounted(() => {
-  unsub && unsub()
+  const snap = await getDocs(q)
+  posts.value = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+  loading.value = false
 })
 
 function formatDate(ts) {

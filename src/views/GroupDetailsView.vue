@@ -58,9 +58,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { doc, onSnapshot, updateDoc, arrayRemove, deleteField } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, arrayRemove, deleteField } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, removeJoinedGroupId } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
@@ -78,18 +78,10 @@ const editing = ref(false)
 const saving = ref(false)
 const editForm = ref({ name: '', description: '', photoUrl: '' })
 const fileInput = ref(null)
-let unsub = null
 
-onMounted(() => {
-  // onSnapshot: va oltre le slide del corso, tiene la lista partecipanti
-  // aggiornata se qualcuno entra/esce mentre la pagina è aperta.
-  unsub = onSnapshot(doc(db, 'groups', props.groupId), (snap) => {
-    group.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
-  })
-})
-
-onUnmounted(() => {
-  unsub && unsub()
+onMounted(async () => {
+  const snap = await getDoc(doc(db, 'groups', props.groupId))
+  group.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
 })
 
 const isAdmin = computed(() => group.value?.createdBy === userId)
@@ -130,11 +122,15 @@ async function saveEdits() {
   if (!editForm.value.name.trim()) return
   saving.value = true
   try {
-    await updateDoc(doc(db, 'groups', props.groupId), {
+    const updated = {
       name: editForm.value.name.trim(),
       description: editForm.value.description.trim(),
       photoUrl: editForm.value.photoUrl || null
-    })
+    }
+    await updateDoc(doc(db, 'groups', props.groupId), updated)
+    // Niente onSnapshot: aggiorniamo lo stato locale a mano invece di
+    // aspettare un ascoltatore che ce lo rifletta indietro.
+    group.value = { ...group.value, ...updated }
     editing.value = false
   } catch (err) {
     console.error('Errore nel modificare il gruppo:', err)
@@ -168,6 +164,13 @@ async function removeMember(memberId) {
       memberIds: arrayRemove(memberId),
       [`memberNicknames.${memberId}`]: deleteField()
     })
+    const nicknames = { ...group.value.memberNicknames }
+    delete nicknames[memberId]
+    group.value = {
+      ...group.value,
+      memberIds: group.value.memberIds.filter((id) => id !== memberId),
+      memberNicknames: nicknames
+    }
   } catch (err) {
     console.error('Errore nell\'espellere il membro:', err)
   }

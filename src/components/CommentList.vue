@@ -23,8 +23,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore'
+import { ref, onMounted } from 'vue'
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getNickname } from '@/identity.js'
 
@@ -35,33 +35,31 @@ const props = defineProps({
 const comments = ref([])
 const newComment = ref('')
 const posting = ref(false)
-let unsub = null
 
-onMounted(() => {
+onMounted(async () => {
   const commentsRef = collection(db, 'recipes', props.recipeId, 'comments')
-  const q = query(commentsRef, orderBy('createdAt', 'asc'))
-  // onSnapshot: va oltre le API viste a lezione, usato per mostrare i nuovi
-  // commenti di altri utenti senza dover ricaricare la pagina.
-  unsub = onSnapshot(q, (snap) => {
-    comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  })
+  const snap = await getDocs(query(commentsRef, orderBy('createdAt', 'asc')))
+  comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 })
 
-onUnmounted(() => {
-  unsub && unsub()
-})
-
+// Niente onSnapshot: il commento appena pubblicato viene aggiunto subito alla
+// lista locale (lo conosciamo già, non serve rileggerlo da Firestore); i
+// commenti di altri utenti compaiono alla prossima apertura della pagina.
 async function postComment() {
   if (!newComment.value.trim()) return
   posting.value = true
   try {
     const commentsRef = collection(db, 'recipes', props.recipeId, 'comments')
-    await addDoc(commentsRef, {
-      text: newComment.value.trim(),
-      authorLocalId: getUserId(),
-      authorNickname: getNickname() || 'Anonimo',
+    const text = newComment.value.trim()
+    const authorLocalId = getUserId()
+    const authorNickname = getNickname() || 'Anonimo'
+    const docRef = await addDoc(commentsRef, {
+      text,
+      authorLocalId,
+      authorNickname,
       createdAt: serverTimestamp()
     })
+    comments.value.push({ id: docRef.id, text, authorLocalId, authorNickname })
     newComment.value = ''
   } catch (err) {
     console.error('Errore nel pubblicare il commento:', err)

@@ -18,8 +18,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore'
+import { ref, onMounted } from 'vue'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId } from '@/identity.js'
 
@@ -50,60 +50,50 @@ const counts = ref({})
 const myReaction = ref(null)
 const loading = ref(null)
 
-let unsubRecipe = null
-let unsubMyReaction = null
-
-onMounted(() => {
+onMounted(async () => {
   const recipeRef = doc(db, 'recipes', props.recipeId)
-  // onSnapshot: va oltre le API viste a lezione (getDoc/getDocs), usato qui per
-  // tenere il contatore sincronizzato in tempo reale tra più utenti/tab.
-  unsubRecipe = onSnapshot(recipeRef, (snap) => {
-    counts.value = snap.data()?.reactionCounts || {}
-  })
+  const recipeSnap = await getDoc(recipeRef)
+  counts.value = recipeSnap.data()?.reactionCounts || {}
 
   const myReactionRef = doc(db, 'recipes', props.recipeId, 'reactions', userId)
-  unsubMyReaction = onSnapshot(myReactionRef, (snap) => {
-    myReaction.value = snap.exists() ? snap.data().type : null
-  })
-})
-
-onUnmounted(() => {
-  unsubRecipe && unsubRecipe()
-  unsubMyReaction && unsubMyReaction()
+  const myReactionSnap = await getDoc(myReactionRef)
+  myReaction.value = myReactionSnap.exists() ? myReactionSnap.data().type : null
 })
 
 // Una sola reazione per utente per ricetta. Cliccare di nuovo la stessa
-// reazione la rimuove (toggle off). runTransaction (oltre le slide del corso)
-// tiene sincronizzati in modo atomico il contatore denormalizzato
-// (recipes/{id}.reactionCounts) e il documento reactions/{authorLocalId}.
+// reazione la rimuove (toggle off). Lettura + scrittura separate (non una
+// transazione atomica): per un prototipo con un solo account attivo il
+// rischio di due reazioni concorrenti che si sovrascrivono è accettabile;
+// resta comunque il conteggio denormalizzato (recipes/{id}.reactionCounts)
+// sincronizzato con il documento reactions/{authorLocalId} ad ogni click.
 async function toggleReaction(type) {
   loading.value = type
   const recipeRef = doc(db, 'recipes', props.recipeId)
   const myReactionRef = doc(db, 'recipes', props.recipeId, 'reactions', userId)
 
   try {
-    await runTransaction(db, async (tx) => {
-      const recipeSnap = await tx.get(recipeRef)
-      const myReactionSnap = await tx.get(myReactionRef)
+    const recipeSnap = await getDoc(recipeRef)
+    const myReactionSnap = await getDoc(myReactionRef)
 
-      const currentCounts = recipeSnap.data()?.reactionCounts || {}
-      const previousType = myReactionSnap.exists() ? myReactionSnap.data().type : null
+    const currentCounts = recipeSnap.data()?.reactionCounts || {}
+    const previousType = myReactionSnap.exists() ? myReactionSnap.data().type : null
 
-      const newCounts = { ...currentCounts }
+    const newCounts = { ...currentCounts }
+    if (previousType) {
+      newCounts[previousType] = Math.max(0, (newCounts[previousType] || 0) - 1)
+    }
 
-      if (previousType) {
-        newCounts[previousType] = Math.max(0, (newCounts[previousType] || 0) - 1)
-      }
+    if (previousType === type) {
+      await deleteDoc(myReactionRef)
+      myReaction.value = null
+    } else {
+      newCounts[type] = (newCounts[type] || 0) + 1
+      await setDoc(myReactionRef, { type, updatedAt: serverTimestamp() })
+      myReaction.value = type
+    }
 
-      if (previousType === type) {
-        tx.delete(myReactionRef)
-      } else {
-        newCounts[type] = (newCounts[type] || 0) + 1
-        tx.set(myReactionRef, { type, updatedAt: serverTimestamp() })
-      }
-
-      tx.update(recipeRef, { reactionCounts: newCounts })
-    })
+    await updateDoc(recipeRef, { reactionCounts: newCounts })
+    counts.value = newCounts
   } catch (err) {
     console.error('Errore nel salvare la reazione:', err)
   } finally {

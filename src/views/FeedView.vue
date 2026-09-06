@@ -32,9 +32,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import {
-  collection, query, where, onSnapshot, orderBy, getDocs, getDoc, doc, documentId
+  collection, query, where, orderBy, getDocs, getDoc, doc, documentId
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getJoinedGroupIds } from '@/identity.js'
@@ -52,7 +52,7 @@ const groupRecipes = ref([])
 const groupNamesById = ref({})
 const group = ref(null)
 
-function handleSnapshotError(err) {
+function handleLoadError(err) {
   console.error('Errore nel caricare il feed:', err)
   loading.value = false
   loadError.value = err.code === 'failed-precondition'
@@ -61,9 +61,6 @@ function handleSnapshotError(err) {
 }
 
 const joinedGroupIds = getJoinedGroupIds()
-
-let unsubBrand = null
-let unsubGroupRecipes = null
 
 const recipes = computed(() => {
   if (props.groupId) {
@@ -79,79 +76,74 @@ const recipes = computed(() => {
   return merged.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
 })
 
-function unsubscribeAll() {
-  unsubBrand && unsubBrand()
-  unsubGroupRecipes && unsubGroupRecipes()
-  unsubBrand = null
-  unsubGroupRecipes = null
-}
-
 async function loadGroupFeed(groupId) {
   loading.value = true
   loadError.value = ''
   group.value = null
   groupRecipes.value = []
 
-  const groupSnap = await getDoc(doc(db, 'groups', groupId))
-  group.value = groupSnap.exists() ? { id: groupSnap.id, ...groupSnap.data() } : null
+  try {
+    const groupSnap = await getDoc(doc(db, 'groups', groupId))
+    group.value = groupSnap.exists() ? { id: groupSnap.id, ...groupSnap.data() } : null
 
-  const q = query(
-    collection(db, 'recipes'),
-    where('source', '==', 'group'),
-    where('groupId', '==', groupId),
-    orderBy('createdAt', 'desc')
-  )
-  // onSnapshot: va oltre le slide del corso, tiene il feed del gruppo
-  // aggiornato in tempo reale (nuovi post, modifiche, eliminazioni).
-  unsubGroupRecipes = onSnapshot(q, (snap) => {
+    const q = query(
+      collection(db, 'recipes'),
+      where('source', '==', 'group'),
+      where('groupId', '==', groupId),
+      orderBy('createdAt', 'desc')
+    )
+    const snap = await getDocs(q)
     groupRecipes.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    loading.value = false
-  }, handleSnapshotError)
+  } catch (err) {
+    handleLoadError(err)
+    return
+  }
+  loading.value = false
 }
 
 async function loadHomeFeed() {
   loading.value = true
   loadError.value = ''
 
-  // 1. Ricette brand: sempre visibili a tutti, ordinate per data di pubblicazione
-  const brandQuery = query(
-    collection(db, 'recipes'),
-    where('source', '==', 'brand'),
-    orderBy('createdAt', 'desc')
-  )
-  // onSnapshot: va oltre le slide del corso, usato per aggiornare il feed in
-  // tempo reale (es. nuove ricette pubblicate da altri membri del gruppo).
-  unsubBrand = onSnapshot(brandQuery, (snap) => {
-    brandRecipes.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    loading.value = false
-  }, handleSnapshotError)
-
-  // 2. Ricette dei gruppi a cui l'utente ha aderito (letti da localStorage,
-  // non da una query "chi è membro di cosa" su Firestore)
-  if (joinedGroupIds.length) {
-    const ids = joinedGroupIds.slice(0, 10) // limite della clausola 'in' di Firestore
-
-    const groupsSnap = await getDocs(
-      query(collection(db, 'groups'), where(documentId(), 'in', ids))
-    )
-    groupNamesById.value = Object.fromEntries(
-      groupsSnap.docs.map((d) => [d.id, d.data().name])
-    )
-
-    const groupRecipesQuery = query(
+  try {
+    // 1. Ricette brand: sempre visibili a tutti, ordinate per data di pubblicazione
+    const brandQuery = query(
       collection(db, 'recipes'),
-      where('source', '==', 'group'),
-      where('groupId', 'in', ids),
+      where('source', '==', 'brand'),
       orderBy('createdAt', 'desc')
     )
-    unsubGroupRecipes = onSnapshot(groupRecipesQuery, (snap) => {
-      groupRecipes.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    }, handleSnapshotError)
+    const brandSnap = await getDocs(brandQuery)
+    brandRecipes.value = brandSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+    // 2. Ricette dei gruppi a cui l'utente ha aderito (letti da localStorage,
+    // non da una query "chi è membro di cosa" su Firestore)
+    if (joinedGroupIds.length) {
+      const ids = joinedGroupIds.slice(0, 10) // limite della clausola 'in' di Firestore
+
+      const groupsSnap = await getDocs(
+        query(collection(db, 'groups'), where(documentId(), 'in', ids))
+      )
+      groupNamesById.value = Object.fromEntries(
+        groupsSnap.docs.map((d) => [d.id, d.data().name])
+      )
+
+      const groupRecipesQuery = query(
+        collection(db, 'recipes'),
+        where('source', '==', 'group'),
+        where('groupId', 'in', ids),
+        orderBy('createdAt', 'desc')
+      )
+      const groupSnap = await getDocs(groupRecipesQuery)
+      groupRecipes.value = groupSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    }
+  } catch (err) {
+    handleLoadError(err)
+    return
   }
+  loading.value = false
 }
 
 function load() {
-  unsubscribeAll()
   if (props.groupId) {
     loadGroupFeed(props.groupId)
   } else {
@@ -161,7 +153,6 @@ function load() {
 
 onMounted(load)
 watch(() => props.groupId, load)
-onUnmounted(unsubscribeAll)
 </script>
 
 <style scoped>

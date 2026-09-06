@@ -126,8 +126,13 @@ personale che nessun altro deve vedere.
   unirsi. Le `firestore.rules` non possono verificare che l'id scritto nei
   documenti corrisponda a chi sta davvero scrivendo, perché non c'è
   `request.auth` (nessuna Firebase Auth).
-- **`onSnapshot`, `runTransaction` e `arrayUnion`** sono usati in alcuni
-  punti (feed, reazioni, commenti, adesione a un gruppo) per un'esperienza
-  in tempo reale/atomica: sono estensioni delle API Firestore viste a
-  lezione (`addDoc`/`getDoc`/`getDocs`/`setDoc`/`updateDoc`/`deleteDoc`/
-  `query`/`where`/`orderBy`) — segnalate nei commenti del codice dove usate.
+- **Solo API Firestore viste a lezione** (`addDoc`/`getDoc`/`getDocs`/
+  `setDoc`/`updateDoc`/`deleteDoc`/`query`/`where`/`orderBy`): niente
+  `onSnapshot` (letture singole invece di ascolto in tempo reale) né
+  `runTransaction` (reazioni: lettura + scrittura separate, non atomiche).
+  Scelta deliberata per un'app trattata come prototipo con un solo account
+  attivo: il rischio teorico di due scritture concorrenti che si
+  sovrascrivono è accettato, in cambio di restare dentro le API comuni.
+  `arrayUnion`/`arrayRemove`/`deleteField` (adesione/uscita da un gruppo)
+  restano invece in uso — sono ancora segnalati nei commenti del codice
+  dove compaiono.

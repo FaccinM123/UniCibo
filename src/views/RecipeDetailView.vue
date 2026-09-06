@@ -61,8 +61,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { ref, computed, onMounted } from 'vue'
+import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
@@ -75,23 +75,14 @@ const props = defineProps({
 
 const recipe = ref(null)
 const saved = ref(isRecipeSaved(props.id))
-let unsub = null
 
 function toggleSave() {
   saved.value = toggleSavedRecipeId(props.id)
 }
 
-onMounted(() => {
-  const ref_ = doc(db, 'recipes', props.id)
-  // onSnapshot: va oltre le slide del corso, tiene il dettaglio aggiornato se
-  // qualcun altro reagisce/commenta mentre la pagina è aperta.
-  unsub = onSnapshot(ref_, (snap) => {
-    recipe.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
-  })
-})
-
-onUnmounted(() => {
-  unsub && unsub()
+onMounted(async () => {
+  const snap = await getDoc(doc(db, 'recipes', props.id))
+  recipe.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
 })
 
 const originLabel = computed(() => {
