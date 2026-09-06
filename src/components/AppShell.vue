@@ -17,7 +17,14 @@
           <img src="@/assets/logo-icona.png" alt="UniCibo" class="uc-logo-img" />
         </RouterLink>
 
-        <span class="uc-icon-btn-spacer" />
+        <button
+          type="button"
+          class="uc-icon-btn"
+          aria-label="Il tuo profilo"
+          @click="emit('open-profile')"
+        >
+          <v-icon icon="mdi-account-circle-outline" size="24" />
+        </button>
       </header>
 
       <p v-if="screenLabel" class="uc-screen-label">{{ screenLabel }}</p>
@@ -35,7 +42,7 @@
           <v-icon icon="mdi-home-outline" size="23" />
           <span>Home</span>
         </RouterLink>
-        <RouterLink to="/nuova-ricetta" class="uc-nav-item" active-class="uc-nav-item--active">
+        <RouterLink :to="newRecipeLink" class="uc-nav-item" active-class="uc-nav-item--active">
           <v-icon icon="mdi-plus-circle-outline" size="23" />
           <span>Nuova ricetta</span>
         </RouterLink>
@@ -50,9 +57,15 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+const emit = defineEmits(['open-profile'])
 
 const showBack = computed(() => route.name !== 'feed')
 const screenLabel = computed(() => route.meta?.label ?? null)
+// Se sei dentro il feed di un gruppo, "Nuova ricetta" propone già quel gruppo
+// come destinazione predefinita del form.
+const newRecipeLink = computed(() => {
+  return route.params.groupId ? { path: '/nuova-ricetta', query: { groupId: route.params.groupId } } : '/nuova-ricetta'
+})
 </script>
 
 <style scoped>

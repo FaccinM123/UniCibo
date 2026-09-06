@@ -7,7 +7,8 @@
     <h1 class="uc-detail-title">{{ recipe.title }}</h1>
 
     <div class="uc-detail-author">
-      <div class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
+      <img v-if="myAvatarPhoto" :src="myAvatarPhoto" alt="" class="uc-avatar uc-avatar-photo" />
+      <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
         {{ avatarInitial(recipe.authorNickname) }}
       </div>
       <span class="uc-detail-author-name">{{ recipe.authorNickname || 'UniCibo' }}</span>
@@ -48,6 +49,7 @@ import { db } from '@/firebase.js'
 import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
+import { getUserId, getAvatarPhoto } from '@/identity.js'
 
 const props = defineProps({
   id: { type: String, required: true }
@@ -72,6 +74,12 @@ onUnmounted(() => {
 const originLabel = computed(() => {
   if (!recipe.value) return ''
   return recipe.value.source === 'brand' ? recipe.value.brandName : null
+})
+
+// Vedi RecipeCard.vue: la foto profilo è locale al dispositivo, quindi la
+// mostriamo solo quando l'autore della ricetta sei "tu".
+const myAvatarPhoto = computed(() => {
+  return recipe.value?.authorLocalId === getUserId() ? getAvatarPhoto() : ''
 })
 
 const formattedDate = computed(() => {
@@ -134,6 +142,7 @@ const formattedDate = computed(() => {
   font-weight: 700;
   font-size: 13px;
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 .uc-detail-author-name {

@@ -1,8 +1,10 @@
 <template>
   <v-app>
-    <AppShell>
+    <AppShell @open-profile="showProfileDialog = true">
       <router-view />
     </AppShell>
+
+    <ProfileDialog v-model="showProfileDialog" />
 
     <!-- Dialog di primo accesso: chiede solo il nickname, niente password.
          È il cuore della "identità leggera" dichiarata come limite. -->
@@ -56,9 +58,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import AppShell from '@/components/AppShell.vue'
+import ProfileDialog from '@/components/ProfileDialog.vue'
 import { hasIdentity, setNickname } from '@/identity.js'
 
 const showIdentityDialog = ref(false)
+const showProfileDialog = ref(false)
 const nicknameInput = ref('')
 
 onMounted(() => {

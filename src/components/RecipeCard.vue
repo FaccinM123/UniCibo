@@ -1,7 +1,8 @@
 <template>
   <article class="uc-card">
     <div class="uc-card-header">
-      <div class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
+      <img v-if="myAvatarPhoto" :src="myAvatarPhoto" alt="" class="uc-avatar uc-avatar-photo" />
+      <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
         {{ avatarInitial(recipe.authorNickname) }}
       </div>
       <div class="uc-card-header-text">
@@ -40,6 +41,7 @@ import { ref, computed } from 'vue'
 import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
+import { getUserId, getAvatarPhoto } from '@/identity.js'
 
 const props = defineProps({
   recipe: { type: Object, required: true }
@@ -49,6 +51,12 @@ const expanded = ref(false)
 
 const originLabel = computed(() => {
   return props.recipe.source === 'brand' ? props.recipe.brandName : props.recipe.groupName
+})
+
+// La foto profilo resta solo su questo dispositivo (vedi identity.js): la
+// mostriamo solo sui post pubblicati da "te", non su quelli di altri autori.
+const myAvatarPhoto = computed(() => {
+  return props.recipe.authorLocalId === getUserId() ? getAvatarPhoto() : ''
 })
 
 const formattedDate = computed(() => {
@@ -86,6 +94,10 @@ const formattedDate = computed(() => {
   font-weight: 700;
   font-size: 14px;
   flex-shrink: 0;
+}
+
+.uc-avatar-photo {
+  object-fit: cover;
 }
 
 .uc-card-header-text {

@@ -3,7 +3,7 @@
     <h1 class="uc-page-title">I tuoi gruppi</h1>
 
     <div v-if="myGroups.length" class="uc-group-list">
-      <div v-for="g in myGroups" :key="g.id" class="uc-group-row">
+      <RouterLink v-for="g in myGroups" :key="g.id" :to="`/gruppi/${g.id}`" class="uc-group-row">
         <div class="uc-group-icon" :style="{ background: avatarColor(g.id) }">
           <v-icon icon="mdi-account-group" size="20" color="white" />
         </div>
@@ -13,7 +13,8 @@
             Codice invito <strong>{{ g.inviteCode }}</strong> · {{ g.memberIds.length }} partecipanti
           </div>
         </div>
-      </div>
+        <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
+      </RouterLink>
     </div>
     <p v-else class="uc-empty">Non fai ancora parte di nessun gruppo.</p>
 
@@ -168,6 +169,8 @@ async function joinGroup() {
   background: var(--uc-surface);
   border-radius: 12px;
   box-shadow: var(--uc-shadow-card);
+  text-decoration: none;
+  color: inherit;
 }
 
 .uc-group-icon {

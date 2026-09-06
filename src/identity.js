@@ -8,6 +8,8 @@
 const NICKNAME_KEY = 'unicibo_nickname'
 const USER_ID_KEY = 'unicibo_user_id'
 const JOINED_GROUPS_KEY = 'unicibo_joined_group_ids'
+const BIO_KEY = 'unicibo_bio'
+const AVATAR_PHOTO_KEY = 'unicibo_avatar_photo'
 
 export function getUserId() {
   let id = localStorage.getItem(USER_ID_KEY)
@@ -43,5 +45,30 @@ export function addJoinedGroupId(groupId) {
   const current = getJoinedGroupIds()
   if (!current.includes(groupId)) {
     localStorage.setItem(JOINED_GROUPS_KEY, JSON.stringify([...current, groupId]))
+  }
+}
+
+// Bio e foto profilo: NON fanno parte dello schema Firestore (niente
+// collezione "users" prevista) e restano solo su questo dispositivo. Non
+// vengono quindi viste da altri utenti/dispositivi sui post pubblicati: è un
+// limite dichiarato, coerente con l'identità leggera del progetto.
+
+export function getBio() {
+  return localStorage.getItem(BIO_KEY) || ''
+}
+
+export function setBio(bio) {
+  localStorage.setItem(BIO_KEY, bio.trim())
+}
+
+export function getAvatarPhoto() {
+  return localStorage.getItem(AVATAR_PHOTO_KEY) || ''
+}
+
+export function setAvatarPhoto(dataUrl) {
+  if (dataUrl) {
+    localStorage.setItem(AVATAR_PHOTO_KEY, dataUrl)
+  } else {
+    localStorage.removeItem(AVATAR_PHOTO_KEY)
   }
 }

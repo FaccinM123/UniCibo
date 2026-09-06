@@ -7,6 +7,7 @@ import HowItWorksView from '@/views/HowItWorksView.vue'
 
 const routes = [
   { path: '/', name: 'feed', component: FeedView },
+  { path: '/gruppi/:groupId', name: 'group-feed', component: FeedView, props: true },
   { path: '/ricetta/:id', name: 'recipe-detail', component: RecipeDetailView, props: true, meta: { label: 'Ricetta' } },
   { path: '/nuova-ricetta', name: 'new-recipe', component: NewRecipeView, meta: { label: 'Nuova ricetta' } },
   { path: '/gruppi', name: 'groups', component: GroupsView, meta: { label: 'Gruppi' } },

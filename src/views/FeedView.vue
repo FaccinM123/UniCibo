@@ -1,8 +1,19 @@
 <template>
   <div class="uc-feed">
-    <h1 class="uc-page-title">Feed</h1>
+    <template v-if="groupId">
+      <div v-if="group" class="uc-group-header">
+        <div class="uc-group-icon" :style="{ background: avatarColor(groupId) }">
+          <v-icon icon="mdi-account-group" size="20" color="white" />
+        </div>
+        <div class="uc-group-header-text">
+          <div class="uc-group-name">{{ group.name }}</div>
+          <div class="uc-group-meta">{{ group.memberIds.length }} partecipanti</div>
+        </div>
+      </div>
+    </template>
+    <h1 v-else class="uc-page-title">Feed</h1>
 
-    <v-alert v-if="!joinedGroupIds.length" type="info" variant="tonal" class="mb-4">
+    <v-alert v-if="!groupId && !joinedGroupIds.length" type="info" variant="tonal" class="mb-4">
       Non fai ancora parte di nessun gruppo: vedi solo le ricette consigliate.
       <RouterLink to="/gruppi">Crea o unisciti a un gruppo</RouterLink>.
     </v-alert>
@@ -19,19 +30,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import {
-  collection, query, where, onSnapshot, orderBy, getDocs, documentId
+  collection, query, where, onSnapshot, orderBy, getDocs, getDoc, doc, documentId
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getJoinedGroupIds } from '@/identity.js'
+import { avatarColor } from '@/utils/avatar.js'
 import RecipeCard from '@/components/RecipeCard.vue'
+
+const props = defineProps({
+  groupId: { type: String, default: null }
+})
 
 const loading = ref(true)
 const loadError = ref('')
 const brandRecipes = ref([])
 const groupRecipes = ref([])
 const groupNamesById = ref({})
+const group = ref(null)
 
 function handleSnapshotError(err) {
   console.error('Errore nel caricare il feed:', err)
@@ -47,6 +64,10 @@ let unsubBrand = null
 let unsubGroupRecipes = null
 
 const recipes = computed(() => {
+  if (props.groupId) {
+    // Feed di un singolo gruppo: solo i suoi post, niente ricette brand.
+    return groupRecipes.value
+  }
   const merged = [
     ...brandRecipes.value,
     ...groupRecipes.value.map((r) => ({ ...r, groupName: groupNamesById.value[r.groupId] || '' }))
@@ -56,7 +77,38 @@ const recipes = computed(() => {
   return merged.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
 })
 
-onMounted(async () => {
+function unsubscribeAll() {
+  unsubBrand && unsubBrand()
+  unsubGroupRecipes && unsubGroupRecipes()
+  unsubBrand = null
+  unsubGroupRecipes = null
+}
+
+async function loadGroupFeed(groupId) {
+  loading.value = true
+  loadError.value = ''
+  group.value = null
+  groupRecipes.value = []
+
+  const groupSnap = await getDoc(doc(db, 'groups', groupId))
+  group.value = groupSnap.exists() ? { id: groupSnap.id, ...groupSnap.data() } : null
+
+  const q = query(
+    collection(db, 'recipes'),
+    where('source', '==', 'group'),
+    where('groupId', '==', groupId),
+    orderBy('createdAt', 'desc')
+  )
+  unsubGroupRecipes = onSnapshot(q, (snap) => {
+    groupRecipes.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    loading.value = false
+  }, handleSnapshotError)
+}
+
+async function loadHomeFeed() {
+  loading.value = true
+  loadError.value = ''
+
   // 1. Ricette brand: sempre visibili a tutti, ordinate per data di pubblicazione
   const brandQuery = query(
     collection(db, 'recipes'),
@@ -92,12 +144,20 @@ onMounted(async () => {
       groupRecipes.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     }, handleSnapshotError)
   }
-})
+}
 
-onUnmounted(() => {
-  unsubBrand && unsubBrand()
-  unsubGroupRecipes && unsubGroupRecipes()
-})
+function load() {
+  unsubscribeAll()
+  if (props.groupId) {
+    loadGroupFeed(props.groupId)
+  } else {
+    loadHomeFeed()
+  }
+}
+
+onMounted(load)
+watch(() => props.groupId, load)
+onUnmounted(unsubscribeAll)
 </script>
 
 <style scoped>
@@ -110,6 +170,39 @@ onUnmounted(() => {
   font-weight: 700;
   margin: 4px 0 14px;
   color: var(--uc-text);
+}
+
+.uc-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 2px 16px;
+}
+
+.uc-group-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.uc-group-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.uc-group-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--uc-text);
+}
+
+.uc-group-meta {
+  font-size: 12px;
+  color: var(--uc-text-muted);
 }
 
 .uc-empty {
