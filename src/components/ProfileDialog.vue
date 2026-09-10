@@ -31,6 +31,17 @@
           </div>
           <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
         </RouterLink>
+
+        <div class="uc-account-actions">
+          <button type="button" class="uc-account-btn" @click="logout">
+            <v-icon icon="mdi-logout" size="18" />
+            Esci
+          </button>
+          <button type="button" class="uc-account-btn uc-account-btn--danger" :disabled="deleting" @click="removeAccount">
+            <v-icon icon="mdi-account-remove-outline" size="18" />
+            {{ deleting ? 'Eliminazione...' : 'Elimina account' }}
+          </button>
+        </div>
       </v-card-text>
 
       <v-card-actions class="pt-0">
@@ -46,9 +57,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import {
-  getUserId, getNickname, setNickname, getBio, setBio, getAvatarPhoto, setAvatarPhoto
-} from '@/identity.js'
+import { getUserId, getNickname, getBio, getAvatarPhoto, updateProfile, signOutUser, deleteAccount } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
 
@@ -63,6 +72,8 @@ const bio = ref(getBio())
 const avatarPhoto = ref(getAvatarPhoto())
 const imageError = ref('')
 const fileInput = ref(null)
+const saving = ref(false)
+const deleting = ref(false)
 
 watch(() => props.modelValue, (open) => {
   if (open) {
@@ -91,12 +102,33 @@ function close() {
   emit('update:modelValue', false)
 }
 
-function save() {
+async function save() {
   if (!nickname.value.trim()) return
-  setNickname(nickname.value)
-  setBio(bio.value)
-  setAvatarPhoto(avatarPhoto.value)
+  saving.value = true
+  try {
+    await updateProfile({ nickname: nickname.value, bio: bio.value, avatarPhoto: avatarPhoto.value })
+    close()
+  } catch (err) {
+    console.error('Errore nel salvare il profilo:', err)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function logout() {
+  await signOutUser()
   close()
+}
+
+async function removeAccount() {
+  if (!confirm('Eliminare definitivamente il tuo account? Non potrai annullare questa azione.')) return
+  deleting.value = true
+  try {
+    await deleteAccount()
+  } catch (err) {
+    console.error('Errore nell\'eliminare l\'account:', err)
+    deleting.value = false
+  }
 }
 </script>
 
@@ -207,5 +239,37 @@ function save() {
 .uc-management-link-subtitle {
   font-size: 11.5px;
   color: var(--uc-text-muted);
+}
+
+.uc-account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.uc-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--uc-bg);
+  border: none;
+  color: var(--uc-text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.uc-account-btn--danger {
+  color: var(--uc-delete-fg);
+  background: var(--uc-delete-bg);
+}
+
+.uc-account-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 </style>
