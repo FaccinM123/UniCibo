@@ -1,7 +1,8 @@
-// Inizializzazione Firebase + esportazione dell'istanza Firestore
-// usata da tutte le view/componenti dell'app.
+// Inizializzazione Firebase + esportazione delle istanze Firestore/Auth
+// usate da tutte le view/componenti dell'app.
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
+import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,3 +15,4 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
+export const auth = getAuth(app)
