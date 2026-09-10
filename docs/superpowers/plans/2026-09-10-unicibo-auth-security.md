@@ -836,6 +836,14 @@ rules_version = '2';
 // Autenticazione reale via Firebase Auth (email/password, Google, Apple).
 // Ogni scrittura sensibile verifica request.auth.uid: non è più possibile
 // scrivere/modificare/cancellare contenuti a nome di un altro utente.
+//
+// LIMITE CONSAPEVOLE ANCORA PRESENTE (gruppi): l'adesione a un gruppo resta
+// basata solo su un "codice invito" leggibile da chiunque sia loggato (serve
+// per validarlo prima di entrare) — le regole non possono verificare che chi
+// scrive memberIds "conoscesse per davvero" il codice, quindi un utente
+// autenticato che elenca tutti i gruppi può unirsi a uno qualsiasi senza
+// avere il codice. Una vera barriera richiederebbe una Cloud Function (fuori
+// dallo stack di questo progetto); va dichiarato come limite, non risolto qui.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -852,22 +860,41 @@ service cloud.firestore {
     match /users/{uid} {
       // Il profilo (nickname, avatar) è leggibile da chiunque sia loggato:
       // serve per mostrare autori/membri di gruppo ovunque nell'app.
+      // NOTA: questo espone anche joinedGroupIds/savedRecipeIds a chiunque
+      // sia loggato (Firestore non ha sicurezza a livello di singolo campo
+      // dentro un documento) — limite consapevole, non affrontato in questo
+      // task; un'eventuale correzione sposterebbe savedRecipeIds in una
+      // sotto-collezione privata a parte.
       allow read: if isSignedIn();
       allow create: if isOwner(uid)
                     && request.resource.data.keys().hasAll(
                          ['nickname', 'bio', 'avatarPhoto', 'joinedGroupIds', 'savedRecipeIds', 'createdAt']
                        )
                     && request.resource.data.nickname is string
+                    && request.resource.data.bio is string
+                    && request.resource.data.avatarPhoto is string
                     && request.resource.data.joinedGroupIds is list
                     && request.resource.data.savedRecipeIds is list
                     && request.resource.data.createdAt is timestamp;
-      allow update, delete: if isOwner(uid);
+      // Le stesse verifiche di tipo del create si applicano anche
+      // all'update: request.resource.data rappresenta sempre il documento
+      // risultante completo (non solo i campi toccati), quindi ricontrollarle
+      // qui impedisce di corrompere il profilo con un update parziale.
+      allow update: if isOwner(uid)
+                    && request.resource.data.nickname is string
+                    && request.resource.data.bio is string
+                    && request.resource.data.avatarPhoto is string
+                    && request.resource.data.joinedGroupIds is list
+                    && request.resource.data.savedRecipeIds is list;
+      allow delete: if isOwner(uid);
     }
 
     // --- GROUPS ---
     match /groups/{groupId} {
       // Leggibile da chiunque sia loggato (serve a validare un codice
-      // invito prima di essere membro).
+      // invito prima di essere membro — vedi limite dichiarato in cima al
+      // file: questa stessa apertura è ciò che rende il codice invito non
+      // davvero segreto).
       allow read: if isSignedIn();
 
       allow create: if isSignedIn()
@@ -881,14 +908,17 @@ service cloud.firestore {
                     && request.resource.data.name is string
                     && request.resource.data.inviteCode is string
                     && request.resource.data.description is string
+                    && (request.resource.data.photoUrl is string || request.resource.data.photoUrl == null)
                     && request.resource.data.memberNicknames is map
                     && request.resource.data.createdAt is timestamp;
 
       allow update: if isSignedIn() && (
-        // Adesione: SOLO aggiungere se stessi a memberIds/memberNicknames.
+        // Adesione: SOLO aggiungere se stessi a memberIds/memberNicknames,
+        // senza perdere nessuno dei membri già presenti (il confronto è tra
+        // il documento NUOVO e quello VECCHIO, non il vecchio con se stesso).
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberNicknames'])
           && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
-          && resource.data.memberIds.hasAll(resource.data.memberIds)
+          && request.resource.data.memberIds.hasAll(resource.data.memberIds)
           && !resource.data.memberIds.hasAny([request.auth.uid])
           && request.resource.data.memberIds.hasAny([request.auth.uid]))
         ||
@@ -905,7 +935,8 @@ service cloud.firestore {
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'photoUrl'])
           && resource.data.createdBy == request.auth.uid
           && request.resource.data.name is string
-          && request.resource.data.description is string)
+          && request.resource.data.description is string
+          && (request.resource.data.photoUrl is string || request.resource.data.photoUrl == null))
       );
 
       allow delete: if false;
@@ -918,11 +949,22 @@ service cloud.firestore {
                && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.memberIds;
       }
 
-      // Lettura: ricette brand e post pubblici a chiunque sia loggato;
-      // post di gruppo solo ai membri di quel gruppo (verificato via get()).
-      allow read: if resource.data.source == 'brand'
-                  || resource.data.visibility == 'public'
-                  || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId));
+      // Lettura: ricette brand e post pubblici a chi è loggato; post di
+      // gruppo solo ai membri di quel gruppo (verificato via get()); e in
+      // più, sempre al proprio autore anche se nel frattempo ha lasciato il
+      // gruppo (altrimenti "Gestione post" smetterebbe di funzionare per i
+      // post lasciati indietro — Firestore nega l'intera query se anche un
+      // solo documento restituito fallisce la regola, non filtra in
+      // silenzio). L'ordine dei rami sfrutta lo short-circuit di && / ||
+      // (documentato e affidabile in Firestore Rules): per un documento
+      // brand il primo ramo è già vero e "visibility"/"groupId" (che i
+      // documenti brand non hanno) non vengono mai letti.
+      allow read: if isSignedIn() && (
+        resource.data.source == 'brand'
+        || resource.data.visibility == 'public'
+        || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId))
+        || resource.data.authorId == request.auth.uid
+      );
 
       // Creazione: solo ricette 'group' dal client (le 'brand' arrivano
       // solo dallo script di import, Admin SDK, bypassa le regole).
@@ -952,21 +994,50 @@ service cloud.firestore {
               || resource.data.visibility == 'public'
               || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId))))
         ||
-        // Modifica contenuti (Gestione post): solo l'autore.
+        // Modifica contenuti (Gestione post): solo l'autore, e se cambia la
+        // destinazione deve restare valida (stessa regola della creazione:
+        // pubblico richiede groupId nullo, gruppo richiede esserne membro) —
+        // altrimenti un autore potrebbe spostare un post in un gruppo privato
+        // di cui non fa parte semplicemente modificandolo dopo la creazione.
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
            ['title', 'imageUrl', 'ingredients', 'steps', 'groupId', 'visibility']
          )
-          && isSignedIn() && resource.data.authorId == request.auth.uid);
+          && isSignedIn() && resource.data.authorId == request.auth.uid
+          && (request.resource.data.visibility == 'public'
+              ? request.resource.data.groupId == null
+              : isGroupMember(request.resource.data.groupId)));
 
       // Eliminazione: solo l'autore. Le ricette brand non hanno authorId
       // (restano null), quindi non sono mai eliminabili dal client.
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
 
+      // Verifica se chi chiama può accedere alla ricetta "genitore" di
+      // questa sotto-collezione: stessa logica della regola di lettura qui
+      // sopra, riletta con get() perché qui {recipeId} è nel path, non nel
+      // resource.data. get() sullo stesso path è messo in cache da Firestore
+      // per tutta la valutazione della richiesta, quindi chiamarlo più volte
+      // (nei tre rami sotto) non costa letture aggiuntive.
+      function canAccessParentRecipe() {
+        return isSignedIn() && (
+          get(/databases/$(database)/documents/recipes/$(recipeId)).data.source == 'brand'
+          || get(/databases/$(database)/documents/recipes/$(recipeId)).data.visibility == 'public'
+          || (get(/databases/$(database)/documents/recipes/$(recipeId)).data.visibility == 'group'
+              && request.auth.uid in get(/databases/$(database)/documents/groups/$(
+                   get(/databases/$(database)/documents/recipes/$(recipeId)).data.groupId
+                 )).data.memberIds)
+          || get(/databases/$(database)/documents/recipes/$(recipeId)).data.authorId == request.auth.uid
+        );
+      }
+
       // --- REACTIONS (sotto-collezione) ---
       match /reactions/{authorId} {
-        allow read: if true;
+        // Prima erano leggibili/scrivibili da chiunque a prescindere dal
+        // post: per un post di un gruppo privato questo avrebbe reso le
+        // reazioni (e chi le ha messe) visibili anche a chi non fa parte del
+        // gruppo. Ora si applica la stessa regola di accesso del post.
+        allow read: if canAccessParentRecipe();
         // L'id del documento DEVE combaciare con chi sta scrivendo.
-        allow create, update: if isSignedIn() && request.auth.uid == authorId
+        allow create, update: if canAccessParentRecipe() && request.auth.uid == authorId
                                && request.resource.data.type in ['cucinarlo', 'mangiarlo', 'nonMiPiace']
                                && request.resource.data.updatedAt is timestamp;
         allow delete: if isSignedIn() && request.auth.uid == authorId;
@@ -974,8 +1045,11 @@ service cloud.firestore {
 
       // --- COMMENTS (sotto-collezione) ---
       match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isSignedIn()
+        // Stessa correzione di privacy della sotto-collezione reactions qui
+        // sopra: i commenti di un post di gruppo privato erano leggibili e
+        // scrivibili da chiunque, ora richiedono lo stesso accesso al post.
+        allow read: if canAccessParentRecipe();
+        allow create: if canAccessParentRecipe()
                       && request.resource.data.authorId == request.auth.uid
                       && request.resource.data.keys().hasAll(['text', 'authorNickname', 'authorId', 'createdAt'])
                       && request.resource.data.text is string
