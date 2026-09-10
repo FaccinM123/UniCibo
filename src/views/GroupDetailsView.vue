@@ -149,7 +149,7 @@ async function leaveGroup() {
       memberIds: arrayRemove(userId),
       [`memberNicknames.${userId}`]: deleteField()
     })
-    removeJoinedGroupId(props.groupId)
+    await removeJoinedGroupId(props.groupId)
     router.push('/gruppi')
   } catch (err) {
     console.error('Errore nel lasciare il gruppo:', err)

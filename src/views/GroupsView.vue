@@ -130,7 +130,7 @@ async function createGroup() {
       createdAt: serverTimestamp()
     }
     const docRef = await addDoc(collection(db, 'groups'), data)
-    addJoinedGroupId(docRef.id)
+    await addJoinedGroupId(docRef.id)
     myGroups.value.push({ id: docRef.id, ...data })
     newGroupName.value = ''
     newGroupPhoto.value = ''
@@ -163,7 +163,7 @@ async function joinGroup() {
       memberIds: arrayUnion(userId),
       [`memberNicknames.${userId}`]: getNickname() || 'Anonimo'
     })
-    addJoinedGroupId(groupDoc.id)
+    await addJoinedGroupId(groupDoc.id)
     myGroups.value.push({
       id: groupDoc.id,
       ...groupDoc.data(),
