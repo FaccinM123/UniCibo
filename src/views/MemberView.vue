@@ -30,7 +30,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase.js'
-import { getUserId, getAvatarPhoto } from '@/identity.js'
+import { getUserId, getAvatarPhoto, resolveNickname } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 
 const props = defineProps({
@@ -40,20 +40,18 @@ const props = defineProps({
 const route = useRoute()
 const posts = ref([])
 const loading = ref(true)
+const nickname = ref(route.query.nickname || 'Utente')
 
 const isMe = computed(() => props.memberId === getUserId())
 const avatarPhoto = computed(() => (isMe.value ? getAvatarPhoto() : ''))
-
-// Non esiste una collezione "utenti": il nickname è ricavato dall'ultima
-// ricetta pubblicata da questa persona (stesso snapshot di authorNickname
-// mostrato ovunque), con l'eventuale nickname passato in query come
-// anteprima immediata mentre i post sono ancora in caricamento.
-const displayNickname = computed(() => {
-  return posts.value[0]?.authorNickname || route.query.nickname || 'Utente'
-})
+const displayNickname = computed(() => nickname.value)
 
 onMounted(async () => {
-  const q = query(collection(db, 'recipes'), where('authorLocalId', '==', props.memberId))
+  // Il vero profilo esiste sempre ora (users/{uid}): niente più bisogno di
+  // indovinare il nickname dall'ultimo post pubblicato.
+  resolveNickname(props.memberId).then((n) => { nickname.value = n })
+
+  const q = query(collection(db, 'recipes'), where('authorId', '==', props.memberId))
   const snap = await getDocs(q)
   posts.value = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))

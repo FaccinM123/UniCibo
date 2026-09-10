@@ -63,7 +63,7 @@ function sortByDateDesc(list) {
 
 async function loadMine() {
   loadingMine.value = true
-  const q = query(collection(db, 'recipes'), where('authorLocalId', '==', getUserId()))
+  const q = query(collection(db, 'recipes'), where('authorId', '==', getUserId()))
   const snap = await getDocs(q)
   myPosts.value = sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
   loadingMine.value = false
