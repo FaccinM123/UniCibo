@@ -424,7 +424,7 @@ export async function deleteAccount() {
 
 - [ ] **Step 2: Verifica manuale**
 
-`npm run build` completa senza errori. La verifica funzionale reale arriva nei task successivi (5-6), che sono i primi a usare davvero questa facciata da un componente montato.
+**Attenzione**: `npm run build` a questo punto FALLISCE, e questo è atteso — non un difetto di questo task. `src/App.vue` e `src/components/ProfileDialog.vue` (non ancora aggiornati: succede nei Task 6 e 8) importano ancora `hasIdentity`, `setNickname`, `setBio`, `setAvatarPhoto` da `@/identity.js`, funzioni che questa riscrittura rimuove del tutto (sostituite da `isSignedIn`/`needsNickname`, `completeNickname`, `updateProfile`). Rollup fallisce la build su un import con nome che non esiste più — a differenza di una funzione che è ancora esportata ma è diventata asincrona, che non causa errori di build. **Non aggiungere funzioni "ponte"/di compatibilità per far passare la build**: verrebbero ignorate dai Task 6/8, che riscrivono `App.vue`/`ProfileDialog.vue` assumendo che quei nomi non esistano più in `identity.js`. La verifica corretta per QUESTO task è: l'errore di build riportato da Vite nomina solo `App.vue`/`ProfileDialog.vue` e solo quei quattro nomi — nessun altro errore, nessun errore di sintassi dentro `identity.js` stesso. La verifica funzionale reale (build che torna a passare) arriva a fine Task 6 (per `App.vue`) e fine Task 8 (per `ProfileDialog.vue`).
 
 - [ ] **Step 3: Commit**
 
@@ -737,7 +737,7 @@ async function save() {
 
 - [ ] **Step 3: Verifica manuale**
 
-`npm run build` completa senza errori (questi componenti non sono ancora montati da nessuna parte finché non si completa il Task 6 — la verifica funzionale reale è lì, inclusa la verifica desktop responsive: vedi Task 6 Step 2).
+`npm run build` continua a fallire a questo punto della sequenza — **stesso motivo già spiegato nel Task 4 Step 2**: `App.vue`/`ProfileDialog.vue` non ancora aggiornati (Task 6/8) importano ancora nomi rimossi da `identity.js`. Non è causato da questi due componenti nuovi, che non sono ancora montati da nessuna parte. Verifica qui solo che l'errore di build non nomini `AuthView.vue`/`NicknameSetupView.vue` — se lo fa, è un problema reale di questo task; se nomina solo `App.vue`/`ProfileDialog.vue`, è il fallimento atteso e si risolve nei Task 6/8. La verifica funzionale reale (build che torna a passare, e verifica desktop responsive) arriva a fine Task 6: vedi Task 6 Step 2.
 
 - [ ] **Step 4: Commit**
 
