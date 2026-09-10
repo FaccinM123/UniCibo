@@ -136,13 +136,25 @@ async function submit() {
   saving.value = true
   try {
     const isPublic = destination.value === PUBLIC_OPTION.id
+    // Fotografia dei membri del gruppo al momento della pubblicazione/modifica:
+    // le regole di sicurezza leggono questo campo (non un get() live) per
+    // decidere chi può leggere il post — un get() con percorso variabile per
+    // documento non è valutabile in modo affidabile da Firestore per le query
+    // a lista che il feed usa (vedi commento in firestore.rules). Va quindi
+    // ri-fotografato a ogni salvataggio, anche in modifica.
+    let groupMemberIds = null
+    if (!isPublic) {
+      const groupSnap = await getDoc(doc(db, 'groups', destination.value))
+      groupMemberIds = groupSnap.data()?.memberIds || []
+    }
     const content = {
       title: title.value.trim(),
       imageUrl: imageUrl.value || null,
       ingredients: ingredientsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
       steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
       visibility: isPublic ? 'public' : 'group',
-      groupId: isPublic ? null : destination.value
+      groupId: isPublic ? null : destination.value,
+      groupMemberIds
     }
     if (editingId.value) {
       await updateDoc(doc(db, 'recipes', editingId.value), content)

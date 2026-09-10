@@ -117,35 +117,57 @@ service cloud.firestore {
       }
 
       // Lettura: ricette brand e post pubblici a chi è loggato; post di
-      // gruppo solo ai membri di quel gruppo (verificato via get()); e in
-      // più, sempre al proprio autore anche se nel frattempo ha lasciato il
-      // gruppo (altrimenti "Gestione post" smetterebbe di funzionare per i
-      // post lasciati indietro — Firestore nega l'intera query se anche un
-      // solo documento restituito fallisce la regola, non filtra in
-      // silenzio). L'ordine dei rami sfrutta lo short-circuit di && / ||
-      // (documentato e affidabile in Firestore Rules): per un documento
-      // brand il primo ramo è già vero e "visibility"/"groupId" (che i
-      // documenti brand non hanno) non vengono mai letti.
+      // gruppo solo ai membri di quel gruppo; e in più, sempre al proprio
+      // autore anche se nel frattempo ha lasciato il gruppo (altrimenti
+      // "Gestione post" smetterebbe di funzionare per i post lasciati
+      // indietro — Firestore nega l'intera query se anche un solo documento
+      // restituito fallisce la regola, non filtra in silenzio).
+      //
+      // IMPORTANTE: l'appartenenza al gruppo qui NON è verificata con un
+      // get() live su groups/{groupId} (come nelle regole di scrittura più
+      // sotto), ma leggendo groupMemberIds — una fotografia dei membri del
+      // gruppo salvata DENTRO al documento della ricetta al momento della
+      // creazione/modifica (stesso pattern già usato altrove nel progetto
+      // per memberNicknames). Motivo: un get() il cui percorso dipende da
+      // un campo che VARIA da un documento all'altro (qui, groupId di ogni
+      // ricetta) non è valutabile in modo affidabile da Firestore per una
+      // query a lista — funziona per una singola getDoc, ma le query
+      // collection().where(...) usate dal feed (FeedView.vue) fallivano
+      // sempre con permission-denied nonostante l'utente fosse un membro
+      // vero, un problema scoperto solo con un test end-to-end reale (non
+      // rilevabile dalla sola lettura del codice). groupMemberIds risolve
+      // la lettura senza bisogno di get(); il limite accettato è che un
+      // membro entrato DOPO la creazione di un post non lo vede finché
+      // quel post non viene ri-salvato (che aggiorna la fotografia).
       allow read: if isSignedIn() && (
         resource.data.source == 'brand'
         || resource.data.visibility == 'public'
-        || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId))
+        || (resource.data.visibility == 'group' && request.auth.uid in resource.data.groupMemberIds)
         || resource.data.authorId == request.auth.uid
       );
 
       // Creazione: solo ricette 'group' dal client (le 'brand' arrivano
       // solo dallo script di import, Admin SDK, bypassa le regole).
+      // Per i post destinati a un gruppo, groupMemberIds deve combaciare
+      // ESATTAMENTE con i membri reali del gruppo in questo momento (get()
+      // live: qui siamo in una scrittura di un singolo documento, non in
+      // una query a lista, quindi get() funziona in modo affidabile) — così
+      // un client non può inventarsi una fotografia falsa per dare accesso
+      // in lettura a persone che non sono davvero nel gruppo.
       allow create: if isSignedIn()
                     && request.resource.data.source == 'group'
                     && request.resource.data.brandName == null
                     && request.resource.data.authorId == request.auth.uid
                     && request.resource.data.visibility in ['public', 'group']
                     && (request.resource.data.visibility == 'public'
-                        ? request.resource.data.groupId == null
-                        : isGroupMember(request.resource.data.groupId))
+                        ? (request.resource.data.groupId == null && request.resource.data.groupMemberIds == null)
+                        : (isGroupMember(request.resource.data.groupId)
+                           && request.resource.data.groupMemberIds
+                              == get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.memberIds))
                     && request.resource.data.keys().hasAll(
                          ['title', 'imageUrl', 'ingredients', 'steps', 'source', 'brandName',
-                          'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts', 'createdAt']
+                          'visibility', 'groupId', 'groupMemberIds', 'authorNickname', 'authorId',
+                          'reactionCounts', 'createdAt']
                        )
                     && request.resource.data.title is string
                     && request.resource.data.ingredients is list
@@ -155,43 +177,47 @@ service cloud.firestore {
                     && request.resource.data.createdAt is timestamp;
 
       allow update: if
-        // Reazioni: chiunque possa leggere il post può aggiornarne i conteggi.
+        // Reazioni: chiunque possa leggere il post può aggiornarne i conteggi
+        // (stessa condizione della regola di lettura sopra, senza get()).
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts'])
           && (resource.data.source == 'brand'
               || resource.data.visibility == 'public'
-              || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId))))
+              || (resource.data.visibility == 'group' && request.auth.uid in resource.data.groupMemberIds)))
         ||
         // Modifica contenuti (Gestione post): solo l'autore, e se cambia la
-        // destinazione deve restare valida (stessa regola della creazione:
-        // pubblico richiede groupId nullo, gruppo richiede esserne membro) —
-        // altrimenti un autore potrebbe spostare un post in un gruppo privato
-        // di cui non fa parte semplicemente modificandolo dopo la creazione.
+        // destinazione deve restare valida — stessa regola della creazione,
+        // groupMemberIds va ri-fotografato dal client a ogni salvataggio e
+        // deve combaciare con i membri reali del gruppo in quel momento.
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-           ['title', 'imageUrl', 'ingredients', 'steps', 'groupId', 'visibility']
+           ['title', 'imageUrl', 'ingredients', 'steps', 'groupId', 'visibility', 'groupMemberIds']
          )
           && isSignedIn() && resource.data.authorId == request.auth.uid
           && (request.resource.data.visibility == 'public'
-              ? request.resource.data.groupId == null
-              : isGroupMember(request.resource.data.groupId)));
+              ? (request.resource.data.groupId == null && request.resource.data.groupMemberIds == null)
+              : (isGroupMember(request.resource.data.groupId)
+                 && request.resource.data.groupMemberIds
+                    == get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.memberIds)));
 
       // Eliminazione: solo l'autore. Le ricette brand non hanno authorId
       // (restano null), quindi non sono mai eliminabili dal client.
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
 
       // Verifica se chi chiama può accedere alla ricetta "genitore" di
-      // questa sotto-collezione: stessa logica della regola di lettura qui
-      // sopra, riletta con get() perché qui {recipeId} è nel path, non nel
-      // resource.data. get() sullo stesso path è messo in cache da Firestore
-      // per tutta la valutazione della richiesta, quindi chiamarlo più volte
-      // (nei tre rami sotto) non costa letture aggiuntive.
+      // questa sotto-collezione. A differenza della regola di lettura sopra,
+      // qui usare get() è sicuro anche per le query a lista (getDocs su
+      // reactions/comments): {recipeId} viene dal PATH della sotto-collezione
+      // interrogata, quindi è lo stesso per ogni documento restituito da una
+      // data query — non varia da un documento all'altro come accadeva con
+      // groupId nella collezione recipes. get() sullo stesso percorso è
+      // inoltre messo in cache da Firestore per tutta la valutazione della
+      // richiesta, quindi chiamarlo più volte (nei rami sotto) non costa
+      // letture aggiuntive.
       function canAccessParentRecipe() {
         return isSignedIn() && (
           get(/databases/$(database)/documents/recipes/$(recipeId)).data.source == 'brand'
           || get(/databases/$(database)/documents/recipes/$(recipeId)).data.visibility == 'public'
           || (get(/databases/$(database)/documents/recipes/$(recipeId)).data.visibility == 'group'
-              && request.auth.uid in get(/databases/$(database)/documents/groups/$(
-                   get(/databases/$(database)/documents/recipes/$(recipeId)).data.groupId
-                 )).data.memberIds)
+              && request.auth.uid in get(/databases/$(database)/documents/recipes/$(recipeId)).data.groupMemberIds)
           || get(/databases/$(database)/documents/recipes/$(recipeId)).data.authorId == request.auth.uid
         );
       }
