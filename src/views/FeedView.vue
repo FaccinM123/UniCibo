@@ -49,6 +49,7 @@ const loading = ref(true)
 const loadError = ref('')
 const brandRecipes = ref([])
 const groupRecipes = ref([])
+const publicRecipes = ref([])
 const groupNamesById = ref({})
 const group = ref(null)
 
@@ -69,6 +70,7 @@ const recipes = computed(() => {
   }
   const merged = [
     ...brandRecipes.value,
+    ...publicRecipes.value,
     ...groupRecipes.value.map((r) => ({ ...r, groupName: groupNamesById.value[r.groupId] || '' }))
   ]
   // Le due query arrivano già ordinate per data (orderBy('createdAt','desc') su
@@ -114,6 +116,16 @@ async function loadHomeFeed() {
     )
     const brandSnap = await getDocs(brandQuery)
     brandRecipes.value = brandSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+    // 1b. Ricette di gruppo pubblicate come "Pubblico": visibili a tutti
+    // come le ricette brand, ma scritte da utenti reali.
+    const publicQuery = query(
+      collection(db, 'recipes'),
+      where('visibility', '==', 'public'),
+      orderBy('createdAt', 'desc')
+    )
+    const publicSnap = await getDocs(publicQuery)
+    publicRecipes.value = publicSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
     // 2. Ricette dei gruppi a cui l'utente ha aderito (letti da localStorage,
     // non da una query "chi è membro di cosa" su Firestore)
