@@ -1,118 +1,154 @@
 rules_version = '2';
 
-// NOTA IMPORTANTE (limite consapevole del progetto):
-// Non usiamo Firebase Auth. L'identità è "leggera": un id anonimo generato
-// lato client con crypto.randomUUID() e salvato in localStorage, passato
-// dall'app dentro ai documenti che scrive (authorLocalId, createdBy,
-// reactions/{authorLocalId}). Firestore NON può verificare che l'id nel
-// documento corrisponda davvero a chi sta scrivendo (non c'è request.auth),
-// quindi queste regole proteggono la FORMA dei dati (campi obbligatori, tipi,
-// quali campi un update può toccare) ma non possono impedire che qualcuno
-// scriva a nome di un altro id se lo conosce. Va dichiarato esplicitamente in
-// sede d'esame come limite del modello di sicurezza.
+// Autenticazione reale via Firebase Auth (email/password, Google, Apple).
+// Ogni scrittura sensibile verifica request.auth.uid: non è più possibile
+// scrivere/modificare/cancellare contenuti a nome di un altro utente.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // --- USERS ---
+    match /users/{uid} {
+      // Il profilo (nickname, avatar) è leggibile da chiunque sia loggato:
+      // serve per mostrare autori/membri di gruppo ovunque nell'app.
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid)
+                    && request.resource.data.keys().hasAll(
+                         ['nickname', 'bio', 'avatarPhoto', 'joinedGroupIds', 'savedRecipeIds', 'createdAt']
+                       )
+                    && request.resource.data.nickname is string
+                    && request.resource.data.joinedGroupIds is list
+                    && request.resource.data.savedRecipeIds is list
+                    && request.resource.data.createdAt is timestamp;
+      allow update, delete: if isOwner(uid);
+    }
+
     // --- GROUPS ---
     match /groups/{groupId} {
-      // Chiunque usi l'app può leggere i gruppi (serve per verificare
-      // un codice invito prima di essere membro).
-      allow read: if true;
+      // Leggibile da chiunque sia loggato (serve a validare un codice
+      // invito prima di essere membro).
+      allow read: if isSignedIn();
 
-      // Creazione: chi crea il gruppo deve inserirsi come unico membro
-      // iniziale ed essere indicato come createdBy (che qui funge anche da
-      // "amministratore": può modificare i dati del gruppo ed espellere
-      // membri, sempre senza una vera verifica di identità).
-      allow create: if request.resource.data.memberIds is list
+      allow create: if isSignedIn()
+                    && request.resource.data.memberIds is list
                     && request.resource.data.memberIds.size() == 1
-                    && request.resource.data.memberIds[0] == request.resource.data.createdBy
+                    && request.resource.data.memberIds[0] == request.auth.uid
+                    && request.resource.data.createdBy == request.auth.uid
                     && request.resource.data.keys().hasAll(
                          ['name', 'inviteCode', 'createdBy', 'memberIds', 'description', 'photoUrl', 'memberNicknames', 'createdAt']
                        )
                     && request.resource.data.name is string
                     && request.resource.data.inviteCode is string
-                    && request.resource.data.createdBy is string
                     && request.resource.data.description is string
                     && request.resource.data.memberNicknames is map
                     && request.resource.data.createdAt is timestamp;
 
-      // Update: due casi consentiti, entrambi solo strutturali (nessun modo
-      // di verificare "chi" sta scrivendo, coerente col limite dichiarato).
-      // 1) Adesione/uscita/espulsione: cambia solo memberIds (+/- 1 persona)
-      //    e la mappa memberNicknames che gli è abbinata.
-      // 2) Modifica dati gruppo: nome, descrizione, foto.
-      allow update: if
+      allow update: if isSignedIn() && (
+        // Adesione: SOLO aggiungere se stessi a memberIds/memberNicknames.
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberNicknames'])
-          && (request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
-              || request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1))
+          && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
+          && resource.data.memberIds.hasAll(resource.data.memberIds)
+          && !resource.data.memberIds.hasAny([request.auth.uid])
+          && request.resource.data.memberIds.hasAny([request.auth.uid]))
         ||
+        // Uscita/espulsione: te stesso che esci, oppure l'admin che espelle.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberNicknames'])
+          && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
+          && resource.data.memberIds.hasAll(request.resource.data.memberIds)
+          && (
+               (resource.data.memberIds.hasAny([request.auth.uid]) && !request.resource.data.memberIds.hasAny([request.auth.uid]))
+               || resource.data.createdBy == request.auth.uid
+             ))
+        ||
+        // Modifica dati gruppo: solo l'admin (createdBy).
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'photoUrl'])
+          && resource.data.createdBy == request.auth.uid
           && request.resource.data.name is string
-          && request.resource.data.description is string);
+          && request.resource.data.description is string)
+      );
 
       allow delete: if false;
     }
 
     // --- RECIPES ---
     match /recipes/{recipeId} {
-      // Lettura pubblica: sia le ricette brand sia quelle di gruppo sono
-      // leggibili da chiunque usi l'app (niente vera separazione per
-      // gruppo lato regole, coerente col limite "no vera sicurezza sui
-      // gruppi" dichiarato nel design).
-      allow read: if true;
+      function isGroupMember(gid) {
+        return isSignedIn()
+               && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.memberIds;
+      }
 
-      // Creazione: solo ricette con source == 'group' possono essere
-      // create dal client; le ricette 'brand' arrivano SOLO dallo script
-      // di import una tantum (eseguito con permessi admin, non da qui).
-      allow create: if request.resource.data.source == 'group'
+      // Lettura: ricette brand e post pubblici a chiunque sia loggato;
+      // post di gruppo solo ai membri di quel gruppo (verificato via get()).
+      allow read: if resource.data.source == 'brand'
+                  || resource.data.visibility == 'public'
+                  || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId));
+
+      // Creazione: solo ricette 'group' dal client (le 'brand' arrivano
+      // solo dallo script di import, Admin SDK, bypassa le regole).
+      allow create: if isSignedIn()
+                    && request.resource.data.source == 'group'
                     && request.resource.data.brandName == null
+                    && request.resource.data.authorId == request.auth.uid
+                    && request.resource.data.visibility in ['public', 'group']
+                    && (request.resource.data.visibility == 'public'
+                        ? request.resource.data.groupId == null
+                        : isGroupMember(request.resource.data.groupId))
                     && request.resource.data.keys().hasAll(
                          ['title', 'imageUrl', 'ingredients', 'steps', 'source', 'brandName',
-                          'groupId', 'authorNickname', 'authorLocalId', 'reactionCounts', 'createdAt']
+                          'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts', 'createdAt']
                        )
                     && request.resource.data.title is string
                     && request.resource.data.ingredients is list
                     && request.resource.data.steps is list
-                    && request.resource.data.groupId is string
                     && request.resource.data.authorNickname is string
-                    && request.resource.data.authorLocalId is string
                     && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
                     && request.resource.data.createdAt is timestamp;
 
-      // Update: reactionCounts (transazione di ReactionBar.vue) oppure
-      // modifica dei contenuti da "Gestione post" (titolo/immagine/
-      // ingredienti/procedimento/gruppo di destinazione). source, brandName,
-      // authorNickname/authorLocalId e createdAt restano immutabili.
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-                      ['reactionCounts', 'title', 'imageUrl', 'ingredients', 'steps', 'groupId']
-                    );
+      allow update: if
+        // Reazioni: chiunque possa leggere il post può aggiornarne i conteggi.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts'])
+          && (resource.data.source == 'brand'
+              || resource.data.visibility == 'public'
+              || (resource.data.visibility == 'group' && isGroupMember(resource.data.groupId))))
+        ||
+        // Modifica contenuti (Gestione post): solo l'autore.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+           ['title', 'imageUrl', 'ingredients', 'steps', 'groupId', 'visibility']
+         )
+          && isSignedIn() && resource.data.authorId == request.auth.uid);
 
-      // Eliminazione: nessuna verifica di identità possibile (stesso limite
-      // dichiarato sopra), l'interfaccia mostra "Elimina" solo sui post
-      // dell'utente stesso in "Gestione post".
-      allow delete: if true;
+      // Eliminazione: solo l'autore. Le ricette brand non hanno authorId
+      // (restano null), quindi non sono mai eliminabili dal client.
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
 
       // --- REACTIONS (sotto-collezione) ---
-      match /reactions/{authorLocalId} {
+      match /reactions/{authorId} {
         allow read: if true;
-        // L'id del documento reaction DEVE combaciare con l'authorLocalId:
-        // riduce (senza eliminare del tutto) il rischio di scrivere reazioni
-        // a nome di altri per errore.
-        allow create, update: if request.resource.data.type in ['cucinarlo', 'mangiarlo', 'nonMiPiace']
+        // L'id del documento DEVE combaciare con chi sta scrivendo.
+        allow create, update: if isSignedIn() && request.auth.uid == authorId
+                               && request.resource.data.type in ['cucinarlo', 'mangiarlo', 'nonMiPiace']
                                && request.resource.data.updatedAt is timestamp;
-        allow delete: if true;
+        allow delete: if isSignedIn() && request.auth.uid == authorId;
       }
 
       // --- COMMENTS (sotto-collezione) ---
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if request.resource.data.keys().hasAll(['text', 'authorNickname', 'authorLocalId', 'createdAt'])
+        allow create: if isSignedIn()
+                      && request.resource.data.authorId == request.auth.uid
+                      && request.resource.data.keys().hasAll(['text', 'authorNickname', 'authorId', 'createdAt'])
                       && request.resource.data.text is string
                       && request.resource.data.text.size() > 0
                       && request.resource.data.text.size() < 2000
                       && request.resource.data.authorNickname is string
-                      && request.resource.data.authorLocalId is string
                       && request.resource.data.createdAt is timestamp;
         allow update, delete: if false;
       }
