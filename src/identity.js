@@ -113,37 +113,3 @@ export async function deleteAccount() {
   await deleteUserProfile(uid)
   await deleteAuthAccount()
 }
-
-// Backward compatibility: deprecated functions from the old localStorage-based API.
-// These are now async and delegate to updateProfile. Consumers should migrate
-// to using updateProfile/completeNickname instead. These exist only to allow a
-// gradual transition where later tasks can update consumers incrementally.
-
-export function hasIdentity() {
-  return !!getNickname()
-}
-
-export async function setNickname(nickname) {
-  // Calling consumers don't await this, but we need it async for Firestore.
-  return updateProfile({
-    nickname,
-    bio: profile.value?.bio || '',
-    avatarPhoto: profile.value?.avatarPhoto || ''
-  })
-}
-
-export async function setBio(bio) {
-  return updateProfile({
-    nickname: profile.value?.nickname || '',
-    bio,
-    avatarPhoto: profile.value?.avatarPhoto || ''
-  })
-}
-
-export async function setAvatarPhoto(avatarPhoto) {
-  return updateProfile({
-    nickname: profile.value?.nickname || '',
-    bio: profile.value?.bio || '',
-    avatarPhoto
-  })
-}
