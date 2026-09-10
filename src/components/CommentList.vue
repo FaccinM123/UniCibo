@@ -51,15 +51,15 @@ async function postComment() {
   try {
     const commentsRef = collection(db, 'recipes', props.recipeId, 'comments')
     const text = newComment.value.trim()
-    const authorLocalId = getUserId()
+    const authorId = getUserId()
     const authorNickname = getNickname() || 'Anonimo'
     const docRef = await addDoc(commentsRef, {
       text,
-      authorLocalId,
+      authorId,
       authorNickname,
       createdAt: serverTimestamp()
     })
-    comments.value.push({ id: docRef.id, text, authorLocalId, authorNickname })
+    comments.value.push({ id: docRef.id, text, authorId, authorNickname })
     newComment.value = ''
   } catch (err) {
     console.error('Errore nel pubblicare il commento:', err)

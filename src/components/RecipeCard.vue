@@ -2,13 +2,13 @@
   <article class="uc-card">
     <div class="uc-card-header">
       <img v-if="myAvatarPhoto" :src="myAvatarPhoto" alt="" class="uc-avatar uc-avatar-photo" />
-      <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
+      <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorId || recipe.authorNickname) }">
         {{ avatarInitial(recipe.authorNickname) }}
       </div>
       <div class="uc-card-header-text">
         <RouterLink
-          v-if="recipe.authorLocalId"
-          :to="{ path: `/membro/${recipe.authorLocalId}`, query: { nickname: recipe.authorNickname } }"
+          v-if="recipe.authorId"
+          :to="{ path: `/membro/${recipe.authorId}`, query: { nickname: recipe.authorNickname } }"
           class="uc-card-author"
         >
           {{ recipe.authorNickname || 'Anonimo' }}
@@ -66,8 +66,8 @@ const props = defineProps({
 const expanded = ref(false)
 const saved = ref(isRecipeSaved(props.recipe.id))
 
-function toggleSave() {
-  saved.value = toggleSavedRecipeId(props.recipe.id)
+async function toggleSave() {
+  saved.value = await toggleSavedRecipeId(props.recipe.id)
 }
 
 // Le ricette "brand" (source: 'brand', importate da Spoonacular — vedi
@@ -81,7 +81,7 @@ const originLabel = computed(() => {
 // La foto profilo resta solo su questo dispositivo (vedi identity.js): la
 // mostriamo solo sui post pubblicati da "te", non su quelli di altri autori.
 const myAvatarPhoto = computed(() => {
-  return props.recipe.authorLocalId === getUserId() ? getAvatarPhoto() : ''
+  return props.recipe.authorId === getUserId() ? getAvatarPhoto() : ''
 })
 
 const formattedDate = computed(() => {
