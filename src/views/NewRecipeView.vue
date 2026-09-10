@@ -2,12 +2,7 @@
   <div class="uc-form-page">
     <h1 class="uc-page-title">{{ editingId ? 'Modifica ricetta' : 'Nuova ricetta' }}</h1>
 
-    <v-alert v-if="!myGroups.length" type="warning" variant="tonal" class="mb-4">
-      Devi far parte di almeno un gruppo per pubblicare una ricetta.
-      <RouterLink to="/gruppi">Vai a Gruppi</RouterLink>.
-    </v-alert>
-
-    <form v-else class="uc-form" @submit.prevent="submit">
+    <form class="uc-form" @submit.prevent="submit">
       <div>
         <p class="uc-label">Titolo</p>
         <v-text-field v-model="title" placeholder="Es. Pasta alla carbonara" variant="outlined" density="comfortable" hide-details required />
@@ -42,8 +37,8 @@
       <div>
         <p class="uc-label">Destinazione</p>
         <v-select
-          v-model="groupId"
-          :items="myGroups"
+          v-model="destination"
+          :items="destinationItems"
           item-title="name"
           item-value="id"
           variant="outlined"
@@ -59,7 +54,7 @@
         size="large"
         class="uc-pill-btn"
         :loading="saving"
-        :disabled="!title.trim() || !groupId"
+        :disabled="!title.trim() || !destination"
       >
         {{ editingId ? 'Salva modifiche' : 'Pubblica' }}
       </v-btn>
@@ -68,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   collection, addDoc, updateDoc, doc, getDoc,
@@ -78,11 +73,13 @@ import { db } from '@/firebase.js'
 import { getUserId, getNickname, getJoinedGroupIds } from '@/identity.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
 
+const PUBLIC_OPTION = { id: '__public__', name: 'Pubblico (visibile a tutti)' }
+
 const router = useRouter()
 const route = useRoute()
 
 const myGroups = ref([])
-const groupId = ref(null)
+const destination = ref(PUBLIC_OPTION.id)
 const title = ref('')
 const imageUrl = ref('')
 const imageError = ref('')
@@ -92,11 +89,14 @@ const saving = ref(false)
 const fileInput = ref(null)
 const editingId = ref(route.query.edit || null)
 
+const destinationItems = computed(() => [PUBLIC_OPTION, ...myGroups.value])
+
 onMounted(async () => {
   const ids = getJoinedGroupIds().slice(0, 10) // limite della clausola 'in' di Firestore
-  if (!ids.length) return
-  const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids)))
-  myGroups.value = snap.docs.map((d) => ({ id: d.id, name: d.data().name }))
+  if (ids.length) {
+    const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids)))
+    myGroups.value = snap.docs.map((d) => ({ id: d.id, name: d.data().name }))
+  }
 
   if (editingId.value) {
     const snapRecipe = await getDoc(doc(db, 'recipes', editingId.value))
@@ -106,16 +106,14 @@ onMounted(async () => {
       imageUrl.value = r.imageUrl || ''
       ingredientsRaw.value = (r.ingredients || []).join('\n')
       stepsRaw.value = (r.steps || []).join('\n')
-      groupId.value = r.groupId
+      destination.value = r.visibility === 'public' ? PUBLIC_OPTION.id : r.groupId
     }
     return
   }
 
   const preselected = route.query.groupId
   if (preselected && myGroups.value.some((g) => g.id === preselected)) {
-    groupId.value = preselected
-  } else if (!groupId.value && myGroups.value.length) {
-    groupId.value = myGroups.value[0].id
+    destination.value = preselected
   }
 })
 
@@ -134,15 +132,17 @@ async function onFileChange(e) {
 }
 
 async function submit() {
-  if (!title.value.trim() || !groupId.value) return
+  if (!title.value.trim() || !destination.value) return
   saving.value = true
   try {
+    const isPublic = destination.value === PUBLIC_OPTION.id
     const content = {
       title: title.value.trim(),
       imageUrl: imageUrl.value || null,
       ingredients: ingredientsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
       steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
-      groupId: groupId.value
+      visibility: isPublic ? 'public' : 'group',
+      groupId: isPublic ? null : destination.value
     }
     if (editingId.value) {
       await updateDoc(doc(db, 'recipes', editingId.value), content)
@@ -153,7 +153,7 @@ async function submit() {
         source: 'group',
         brandName: null,
         authorNickname: getNickname() || 'Anonimo',
-        authorLocalId: getUserId(),
+        authorId: getUserId(),
         reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
         createdAt: serverTimestamp()
       })
