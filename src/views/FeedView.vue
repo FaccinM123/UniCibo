@@ -36,6 +36,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import {
   collection, query, where, orderBy, getDocs, getDoc, doc, documentId
 } from 'firebase/firestore'
+
 import { db } from '@/firebase.js'
 import { getJoinedGroupIds } from '@/identity.js'
 import { avatarColor } from '@/utils/avatar.js'
@@ -88,10 +89,11 @@ async function loadGroupFeed(groupId) {
     const groupSnap = await getDoc(doc(db, 'groups', groupId))
     group.value = groupSnap.exists() ? { id: groupSnap.id, ...groupSnap.data() } : null
 
+    // Sotto-collezione del gruppo (vedi firestore.rules): niente più where()
+    // su 'groupId', il percorso stesso fa già da filtro, e serve anche
+    // meno indice composito.
     const q = query(
-      collection(db, 'recipes'),
-      where('source', '==', 'group'),
-      where('groupId', '==', groupId),
+      collection(db, 'groups', groupId, 'recipes'),
       orderBy('createdAt', 'desc')
     )
     const snap = await getDocs(q)
@@ -139,14 +141,14 @@ async function loadHomeFeed() {
         groupsSnap.docs.map((d) => [d.id, d.data().name])
       )
 
-      const groupRecipesQuery = query(
-        collection(db, 'recipes'),
-        where('source', '==', 'group'),
-        where('groupId', 'in', ids),
-        orderBy('createdAt', 'desc')
+      // Una sotto-collezione per gruppo (vedi firestore.rules): niente più
+      // una singola query 'in', una lettura parallela per gruppo unito.
+      const perGroupSnaps = await Promise.all(
+        ids.map((gid) => getDocs(query(collection(db, 'groups', gid, 'recipes'), orderBy('createdAt', 'desc'))))
       )
-      const groupSnap = await getDocs(groupRecipesQuery)
-      groupRecipes.value = groupSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      groupRecipes.value = perGroupSnaps.flatMap((snap) =>
+        snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      )
     }
   } catch (err) {
     handleLoadError(err)

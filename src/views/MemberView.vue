@@ -11,7 +11,7 @@
     <h2 class="uc-label">Post pubblicati</h2>
     <v-progress-linear v-if="loading" indeterminate class="mb-2" />
     <div class="uc-post-list">
-      <RouterLink v-for="p in posts" :key="p.id" :to="`/ricetta/${p.id}`" class="uc-post-row">
+      <RouterLink v-for="p in posts" :key="p.id" :to="p.groupId ? `/gruppi/${p.groupId}/ricetta/${p.id}` : `/ricetta/${p.id}`" class="uc-post-row">
         <div class="uc-post-thumb" :class="{ 'uc-post-thumb--placeholder': !p.imageUrl }">
           <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.title" />
         </div>
@@ -30,7 +30,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase.js'
-import { getUserId, getAvatarPhoto, resolveNickname } from '@/identity.js'
+import { getUserId, getAvatarPhoto, resolveNickname, getJoinedGroupIds } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 
 const props = defineProps({
@@ -51,9 +51,24 @@ onMounted(async () => {
   // indovinare il nickname dall'ultimo post pubblicato.
   resolveNickname(props.memberId).then((n) => { nickname.value = n })
 
-  const q = query(collection(db, 'recipes'), where('authorId', '==', props.memberId))
-  const snap = await getDocs(q)
-  posts.value = snap.docs
+  const topSnap = await getDocs(query(collection(db, 'recipes'), where('authorId', '==', props.memberId)))
+  let groupDocs = []
+  // I post di gruppo sono ora in sotto-collezioni per gruppo (vedi
+  // firestore.rules): l'accesso a ciascuna è vincolato all'appartenenza a
+  // QUEL gruppo, quindi possiamo mostrare i post di gruppo di questo membro
+  // solo quando è "te stesso" — interrogando i gruppi a cui appartieni,
+  // esattamente come in Gestione post. Non esiste un modo sicuro per un
+  // profilo pubblico di mostrare i post di gruppo di UN ALTRO membro: una
+  // query che attraversi gruppi arbitrari non è dimostrabile da Firestore
+  // (stesso limite descritto in firestore.rules) e fallirebbe sempre.
+  if (props.memberId === getUserId()) {
+    const groupIds = getJoinedGroupIds().slice(0, 10)
+    const groupSnaps = await Promise.all(
+      groupIds.map((gid) => getDocs(query(collection(db, 'groups', gid, 'recipes'), where('authorId', '==', props.memberId))))
+    )
+    groupDocs = groupSnaps.flatMap((snap) => snap.docs)
+  }
+  posts.value = [...topSnap.docs, ...groupDocs]
     .map((d) => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
   loading.value = false

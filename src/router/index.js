@@ -13,6 +13,7 @@ const routes = [
   { path: '/gruppi/:groupId', name: 'group-feed', component: FeedView, props: true },
   { path: '/gruppi/:groupId/dettagli', name: 'group-details', component: GroupDetailsView, props: true, meta: { label: 'Dettagli gruppo' } },
   { path: '/ricetta/:id', name: 'recipe-detail', component: RecipeDetailView, props: true, meta: { label: 'Ricetta' } },
+  { path: '/gruppi/:groupId/ricetta/:id', name: 'group-recipe-detail', component: RecipeDetailView, props: true, meta: { label: 'Ricetta' } },
   { path: '/nuova-ricetta', name: 'new-recipe', component: NewRecipeView, meta: { label: 'Nuova ricetta' } },
   { path: '/gestione-post', name: 'post-management', component: PostManagementView, meta: { label: 'Gestione post' } },
   { path: '/membro/:memberId', name: 'member', component: MemberView, props: true },

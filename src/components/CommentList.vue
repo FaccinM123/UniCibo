@@ -29,16 +29,22 @@ import { db } from '@/firebase.js'
 import { getUserId, getNickname } from '@/identity.js'
 
 const props = defineProps({
-  recipeId: { type: String, required: true }
+  recipeId: { type: String, required: true },
+  groupId: { type: String, default: null }
 })
+
+function commentsRef() {
+  return props.groupId
+    ? collection(db, 'groups', props.groupId, 'recipes', props.recipeId, 'comments')
+    : collection(db, 'recipes', props.recipeId, 'comments')
+}
 
 const comments = ref([])
 const newComment = ref('')
 const posting = ref(false)
 
 onMounted(async () => {
-  const commentsRef = collection(db, 'recipes', props.recipeId, 'comments')
-  const snap = await getDocs(query(commentsRef, orderBy('createdAt', 'asc')))
+  const snap = await getDocs(query(commentsRef(), orderBy('createdAt', 'asc')))
   comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 })
 
@@ -49,11 +55,10 @@ async function postComment() {
   if (!newComment.value.trim()) return
   posting.value = true
   try {
-    const commentsRef = collection(db, 'recipes', props.recipeId, 'comments')
     const text = newComment.value.trim()
     const authorId = getUserId()
     const authorNickname = getNickname() || 'Anonimo'
-    const docRef = await addDoc(commentsRef, {
+    const docRef = await addDoc(commentsRef(), {
       text,
       authorId,
       authorNickname,

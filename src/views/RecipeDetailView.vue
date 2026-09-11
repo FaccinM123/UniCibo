@@ -8,12 +8,12 @@
 
     <div class="uc-detail-author">
       <img v-if="myAvatarPhoto" :src="myAvatarPhoto" alt="" class="uc-avatar uc-avatar-photo" />
-      <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorLocalId || recipe.authorNickname) }">
+      <div v-else class="uc-avatar" :style="{ background: avatarColor(recipe.authorId || recipe.authorNickname) }">
         {{ avatarInitial(recipe.authorNickname) }}
       </div>
       <RouterLink
-        v-if="recipe.authorLocalId"
-        :to="{ path: `/membro/${recipe.authorLocalId}`, query: { nickname: recipe.authorNickname } }"
+        v-if="recipe.authorId"
+        :to="{ path: `/membro/${recipe.authorId}`, query: { nickname: recipe.authorNickname } }"
         class="uc-detail-author-name"
       >
         {{ recipe.authorNickname || 'Anonimo' }}
@@ -23,7 +23,7 @@
     </div>
 
     <div class="uc-detail-reactions">
-      <ReactionBar :recipe-id="id" />
+      <ReactionBar :recipe-id="id" :group-id="groupId" />
       <button
         type="button"
         class="uc-save-toggle"
@@ -51,7 +51,7 @@
 
     <section class="uc-detail-section">
       <h2 class="uc-label">Commenti</h2>
-      <CommentList :recipe-id="id" />
+      <CommentList :recipe-id="id" :group-id="groupId" />
     </section>
   </div>
 
@@ -68,7 +68,8 @@ import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { getUserId, getAvatarPhoto, isRecipeSaved, toggleSavedRecipeId } from '@/identity.js'
 
 const props = defineProps({
-  id: { type: String, required: true }
+  id: { type: String, required: true },
+  groupId: { type: String, default: null }
 })
 
 const recipe = ref(null)
@@ -79,14 +80,17 @@ function toggleSave() {
 }
 
 onMounted(async () => {
-  const snap = await getDoc(doc(db, 'recipes', props.id))
+  const recipeRef = props.groupId
+    ? doc(db, 'groups', props.groupId, 'recipes', props.id)
+    : doc(db, 'recipes', props.id)
+  const snap = await getDoc(recipeRef)
   recipe.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
 })
 
 // Vedi RecipeCard.vue: la foto profilo è locale al dispositivo, quindi la
 // mostriamo solo quando l'autore della ricetta sei "tu".
 const myAvatarPhoto = computed(() => {
-  return recipe.value?.authorLocalId === getUserId() ? getAvatarPhoto() : ''
+  return recipe.value?.authorId === getUserId() ? getAvatarPhoto() : ''
 })
 
 const formattedDate = computed(() => {

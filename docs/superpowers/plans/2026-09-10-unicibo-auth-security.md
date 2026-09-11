@@ -821,6 +821,15 @@ git commit -m "feat(auth): gate app behind real login and nickname setup"
 
 ### Task 7: Riscrivere `firestore.rules` e `firestore.indexes.json`
 
+> **SUPERSEDUTO (Ruling 8, ledger):** il codice sotto ha subito due
+> riscritture successive dopo la verifica live (Task 15): prima la
+> denormalizzazione `groupMemberIds` (Ruling 7), poi — perché anche
+> quella falliva sulle query a lista — lo spostamento delle ricette di
+> gruppo in una sotto-collezione `groups/{groupId}/recipes` (Ruling 8,
+> definitivo). Il file `firestore.rules` live riflette solo Ruling 8;
+> vedi `.superpowers/sdd/2026-09-10-unicibo-auth-security/progress.md`
+> per la cronologia completa e il perché.
+
 **Files:**
 - Modify: `firestore.rules`
 - Modify: `firestore.indexes.json`
@@ -1366,6 +1375,11 @@ git commit -m "feat(auth): await now-async profile mutations in group flows"
 
 ### Task 10: `NewRecipeView.vue` — destinazione "Pubblico" + `visibility` + `authorId`
 
+> **SUPERSEDUTO (Ruling 8, ledger):** `submit()` è stato riscritto per la
+> sotto-collezione per gruppo — niente più `groupMemberIds`; un cambio di
+> destinazione ora cancella il documento vecchio e ne crea uno nuovo nel
+> posto giusto invece di un semplice `updateDoc`. Vedi il ledger.
+
 **Files:**
 - Modify: `src/views/NewRecipeView.vue`
 
@@ -1578,6 +1592,11 @@ git commit -m "feat(auth): add public destination and rename authorLocalId to au
 
 ### Task 11: `FeedView.vue` — includere i post pubblici
 
+> **SUPERSEDUTO (Ruling 8, ledger):** le query sui post di gruppo sono
+> state riscritte per leggere `groups/{groupId}/recipes` invece di
+> filtrare `recipes` per `groupId` — niente più `where('groupId', ...)`,
+> né singolo né `in`. Vedi il ledger.
+
 **Files:**
 - Modify: `src/views/FeedView.vue`
 
@@ -1640,6 +1659,12 @@ git commit -m "feat(auth): show public group posts in the home feed"
 ---
 
 ### Task 12: `RecipeCard.vue` + `CommentList.vue` — `authorId`
+
+> **SUPERSEDUTO (Ruling 8, ledger):** `RecipeCard.vue`, `ReactionBar.vue`
+> e `CommentList.vue` prendono ora una prop opzionale `groupId` per
+> costruire il percorso Firestore corretto (sotto-collezione di gruppo o
+> collezione in cima); `RecipeCard.vue` punta anche a
+> `/gruppi/:groupId/ricetta/:id` per i post di gruppo. Vedi il ledger.
 
 **Files:**
 - Modify: `src/components/RecipeCard.vue`
@@ -1749,6 +1774,16 @@ git commit -m "feat(auth): rename authorLocalId to authorId in card and comments
 ---
 
 ### Task 13: `PostManagementView.vue` + `MemberView.vue` — `authorId` + nickname reale
+
+> **SUPERSEDUTO (Ruling 8, ledger):** "i miei post" ora itera i gruppi a
+> cui l'utente appartiene invece di una singola query sulla collezione
+> `recipes` (una query `collectionGroup` che attraversa più gruppi non è
+> dimostrabile per Firestore e fallisce quasi sempre). `MemberView.vue`
+> mostra i post di gruppo solo sul PROPRIO profilo, per lo stesso motivo
+> — non esiste un modo sicuro di mostrarli sul profilo di un altro
+> membro. `RecipeDetailView.vue` aveva anche un bug preesistente
+> (`authorLocalId` invece di `authorId`) corretto di passaggio. Vedi il
+> ledger.
 
 **Files:**
 - Modify: `src/views/PostManagementView.vue`

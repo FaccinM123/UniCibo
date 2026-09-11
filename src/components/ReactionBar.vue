@@ -24,8 +24,21 @@ import { db } from '@/firebase.js'
 import { getUserId } from '@/identity.js'
 
 const props = defineProps({
-  recipeId: { type: String, required: true }
+  recipeId: { type: String, required: true },
+  groupId: { type: String, default: null }
 })
+
+function recipeRef() {
+  return props.groupId
+    ? doc(db, 'groups', props.groupId, 'recipes', props.recipeId)
+    : doc(db, 'recipes', props.recipeId)
+}
+
+function reactionRef(uid) {
+  return props.groupId
+    ? doc(db, 'groups', props.groupId, 'recipes', props.recipeId, 'reactions', uid)
+    : doc(db, 'recipes', props.recipeId, 'reactions', uid)
+}
 
 const options = [
   {
@@ -51,12 +64,10 @@ const myReaction = ref(null)
 const loading = ref(null)
 
 onMounted(async () => {
-  const recipeRef = doc(db, 'recipes', props.recipeId)
-  const recipeSnap = await getDoc(recipeRef)
+  const recipeSnap = await getDoc(recipeRef())
   counts.value = recipeSnap.data()?.reactionCounts || {}
 
-  const myReactionRef = doc(db, 'recipes', props.recipeId, 'reactions', userId)
-  const myReactionSnap = await getDoc(myReactionRef)
+  const myReactionSnap = await getDoc(reactionRef(userId))
   myReaction.value = myReactionSnap.exists() ? myReactionSnap.data().type : null
 })
 
@@ -68,12 +79,12 @@ onMounted(async () => {
 // sincronizzato con il documento reactions/{authorLocalId} ad ogni click.
 async function toggleReaction(type) {
   loading.value = type
-  const recipeRef = doc(db, 'recipes', props.recipeId)
-  const myReactionRef = doc(db, 'recipes', props.recipeId, 'reactions', userId)
+  const recipeDoc = recipeRef()
+  const myReactionDoc = reactionRef(userId)
 
   try {
-    const recipeSnap = await getDoc(recipeRef)
-    const myReactionSnap = await getDoc(myReactionRef)
+    const recipeSnap = await getDoc(recipeDoc)
+    const myReactionSnap = await getDoc(myReactionDoc)
 
     const currentCounts = recipeSnap.data()?.reactionCounts || {}
     const previousType = myReactionSnap.exists() ? myReactionSnap.data().type : null
@@ -84,15 +95,15 @@ async function toggleReaction(type) {
     }
 
     if (previousType === type) {
-      await deleteDoc(myReactionRef)
+      await deleteDoc(myReactionDoc)
       myReaction.value = null
     } else {
       newCounts[type] = (newCounts[type] || 0) + 1
-      await setDoc(myReactionRef, { type, updatedAt: serverTimestamp() })
+      await setDoc(myReactionDoc, { type, updatedAt: serverTimestamp() })
       myReaction.value = type
     }
 
-    await updateDoc(recipeRef, { reactionCounts: newCounts })
+    await updateDoc(recipeDoc, { reactionCounts: newCounts })
     counts.value = newCounts
   } catch (err) {
     console.error('Errore nel salvare la reazione:', err)

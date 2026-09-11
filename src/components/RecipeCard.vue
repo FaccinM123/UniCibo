@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <RouterLink :to="`/ricetta/${recipe.id}`" class="uc-card-body-link">
+    <RouterLink :to="detailPath" class="uc-card-body-link">
       <h3 class="uc-card-title">{{ recipe.title }}</h3>
       <div class="uc-card-image" :class="{ 'uc-card-image--placeholder': !recipe.imageUrl }">
         <img v-if="recipe.imageUrl" :src="recipe.imageUrl" :alt="recipe.title" loading="lazy" />
@@ -29,7 +29,7 @@
     </RouterLink>
 
     <div class="uc-card-actions">
-      <ReactionBar :recipe-id="recipe.id" />
+      <ReactionBar :recipe-id="recipe.id" :group-id="recipe.groupId" />
       <span class="uc-card-spacer" />
       <button
         type="button"
@@ -47,7 +47,7 @@
     </div>
 
     <div v-if="expanded" class="uc-card-comments">
-      <CommentList :recipe-id="recipe.id" />
+      <CommentList :recipe-id="recipe.id" :group-id="recipe.groupId" />
     </div>
   </article>
 </template>
@@ -65,6 +65,12 @@ const props = defineProps({
 
 const expanded = ref(false)
 const saved = ref(isRecipeSaved(props.recipe.id))
+
+const detailPath = computed(() => {
+  return props.recipe.groupId
+    ? `/gruppi/${props.recipe.groupId}/ricetta/${props.recipe.id}`
+    : `/ricetta/${props.recipe.id}`
+})
 
 async function toggleSave() {
   saved.value = await toggleSavedRecipeId(props.recipe.id)

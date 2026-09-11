@@ -66,7 +66,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  collection, addDoc, updateDoc, doc, getDoc,
+  collection, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc,
   query, where, getDocs, documentId, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
@@ -88,8 +88,16 @@ const stepsRaw = ref('')
 const saving = ref(false)
 const fileInput = ref(null)
 const editingId = ref(route.query.edit || null)
+// Posizione originale del post in modifica (dove si trova ORA su Firestore),
+// per capire se salvare è un semplice updateDoc sul posto o se la
+// destinazione è cambiata e serve spostare il documento (vedi submit()).
+const editingGroupId = ref(route.query.groupId || null)
 
 const destinationItems = computed(() => [PUBLIC_OPTION, ...myGroups.value])
+
+function recipeDocRef(id, groupId) {
+  return groupId ? doc(db, 'groups', groupId, 'recipes', id) : doc(db, 'recipes', id)
+}
 
 onMounted(async () => {
   const ids = getJoinedGroupIds().slice(0, 10) // limite della clausola 'in' di Firestore
@@ -99,7 +107,7 @@ onMounted(async () => {
   }
 
   if (editingId.value) {
-    const snapRecipe = await getDoc(doc(db, 'recipes', editingId.value))
+    const snapRecipe = await getDoc(recipeDocRef(editingId.value, editingGroupId.value))
     if (snapRecipe.exists()) {
       const r = snapRecipe.data()
       title.value = r.title || ''
@@ -136,40 +144,72 @@ async function submit() {
   saving.value = true
   try {
     const isPublic = destination.value === PUBLIC_OPTION.id
-    // Fotografia dei membri del gruppo al momento della pubblicazione/modifica:
-    // le regole di sicurezza leggono questo campo (non un get() live) per
-    // decidere chi può leggere il post — un get() con percorso variabile per
-    // documento non è valutabile in modo affidabile da Firestore per le query
-    // a lista che il feed usa (vedi commento in firestore.rules). Va quindi
-    // ri-fotografato a ogni salvataggio, anche in modifica.
-    let groupMemberIds = null
-    if (!isPublic) {
-      const groupSnap = await getDoc(doc(db, 'groups', destination.value))
-      groupMemberIds = groupSnap.data()?.memberIds || []
-    }
-    const content = {
+    const newGroupId = isPublic ? null : destination.value
+    // Le ricette di gruppo vivono ora in groups/{groupId}/recipes (vedi
+    // firestore.rules): "dove" un post vive è il suo PERCORSO, non più un
+    // campo. Non c'è più bisogno di fotografare i membri del gruppo qui.
+    const fields = {
       title: title.value.trim(),
       imageUrl: imageUrl.value || null,
       ingredients: ingredientsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
-      steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
-      visibility: isPublic ? 'public' : 'group',
-      groupId: isPublic ? null : destination.value,
-      groupMemberIds
+      steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean)
     }
+
     if (editingId.value) {
-      await updateDoc(doc(db, 'recipes', editingId.value), content)
-      router.push(`/ricetta/${editingId.value}`)
+      const samePlace = newGroupId === editingGroupId.value
+      if (samePlace) {
+        await updateDoc(recipeDocRef(editingId.value, editingGroupId.value), fields)
+        router.push(newGroupId ? `/gruppi/${newGroupId}/ricetta/${editingId.value}` : `/ricetta/${editingId.value}`)
+      } else {
+        // Cambio di destinazione (pubblico<->gruppo, o gruppo A->gruppo B):
+        // il documento va ricreato nel posto giusto. Reazioni/commenti non
+        // vengono portati con sé (si riparte da zero) — semplificazione
+        // accettata: spostare anche le sotto-collezioni richiederebbe una
+        // Cloud Function, fuori dallo stack di questo progetto.
+        const oldSnap = await getDoc(recipeDocRef(editingId.value, editingGroupId.value))
+        const old = oldSnap.data() || {}
+        const newRef = newGroupId
+          ? doc(collection(db, 'groups', newGroupId, 'recipes'))
+          : doc(collection(db, 'recipes'))
+        await setDoc(newRef, {
+          ...fields,
+          source: 'group',
+          brandName: null,
+          visibility: newGroupId ? 'group' : 'public',
+          groupId: newGroupId,
+          authorNickname: old.authorNickname || getNickname() || 'Anonimo',
+          authorId: old.authorId || getUserId(),
+          reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+          createdAt: serverTimestamp()
+        })
+        await deleteDoc(recipeDocRef(editingId.value, editingGroupId.value))
+        router.push(newGroupId ? `/gruppi/${newGroupId}/ricetta/${newRef.id}` : `/ricetta/${newRef.id}`)
+      }
     } else {
-      const docRef = await addDoc(collection(db, 'recipes'), {
-        ...content,
-        source: 'group',
-        brandName: null,
-        authorNickname: getNickname() || 'Anonimo',
-        authorId: getUserId(),
-        reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
-        createdAt: serverTimestamp()
-      })
-      router.push(`/ricetta/${docRef.id}`)
+      const docRef = newGroupId
+        ? await addDoc(collection(db, 'groups', newGroupId, 'recipes'), {
+            ...fields,
+            source: 'group',
+            brandName: null,
+            visibility: 'group',
+            groupId: newGroupId,
+            authorNickname: getNickname() || 'Anonimo',
+            authorId: getUserId(),
+            reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+            createdAt: serverTimestamp()
+          })
+        : await addDoc(collection(db, 'recipes'), {
+            ...fields,
+            source: 'group',
+            brandName: null,
+            visibility: 'public',
+            groupId: null,
+            authorNickname: getNickname() || 'Anonimo',
+            authorId: getUserId(),
+            reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+            createdAt: serverTimestamp()
+          })
+      router.push(newGroupId ? `/gruppi/${newGroupId}/ricetta/${docRef.id}` : `/ricetta/${docRef.id}`)
     }
   } catch (err) {
     console.error('Errore nel pubblicare la ricetta:', err)

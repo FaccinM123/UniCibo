@@ -11,17 +11,17 @@
 
     <div v-if="tab === 'miei'" class="uc-grid">
       <div v-for="p in myPosts" :key="p.id" class="uc-post-card">
-        <RouterLink :to="`/ricetta/${p.id}`" class="uc-post-thumb" :class="{ 'uc-post-thumb--placeholder': !p.imageUrl }">
+        <RouterLink :to="detailPath(p)" class="uc-post-thumb" :class="{ 'uc-post-thumb--placeholder': !p.imageUrl }">
           <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.title" />
         </RouterLink>
         <div class="uc-post-body">
-          <RouterLink :to="`/ricetta/${p.id}`" class="uc-post-title">{{ p.title }}</RouterLink>
+          <RouterLink :to="detailPath(p)" class="uc-post-title">{{ p.title }}</RouterLink>
           <div class="uc-post-actions">
-            <RouterLink :to="`/nuova-ricetta?edit=${p.id}`" class="uc-post-edit">
+            <RouterLink :to="editPath(p)" class="uc-post-edit">
               <v-icon icon="mdi-pencil-outline" size="14" />
               Modifica
             </RouterLink>
-            <button type="button" class="uc-post-delete" aria-label="Elimina post" @click="deletePost(p.id)">
+            <button type="button" class="uc-post-delete" aria-label="Elimina post" @click="deletePost(p)">
               <v-icon icon="mdi-delete-outline" size="15" />
             </button>
           </div>
@@ -31,7 +31,7 @@
     </div>
 
     <div v-else class="uc-grid">
-      <RouterLink v-for="p in savedPosts" :key="p.id" :to="`/ricetta/${p.id}`" class="uc-post-card uc-post-card--link">
+      <RouterLink v-for="p in savedPosts" :key="p.id" :to="detailPath(p)" class="uc-post-card uc-post-card--link">
         <div class="uc-post-thumb" :class="{ 'uc-post-thumb--placeholder': !p.imageUrl }">
           <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.title" />
         </div>
@@ -49,7 +49,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { collection, query, where, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/firebase.js'
-import { getUserId, getSavedRecipeIds } from '@/identity.js'
+import { getUserId, getSavedRecipeIds, getJoinedGroupIds } from '@/identity.js'
 
 const tab = ref('miei')
 const myPosts = ref([])
@@ -61,11 +61,36 @@ function sortByDateDesc(list) {
   return list.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
 }
 
+function detailPath(p) {
+  return p.groupId ? `/gruppi/${p.groupId}/ricetta/${p.id}` : `/ricetta/${p.id}`
+}
+
+function editPath(p) {
+  return p.groupId ? `/nuova-ricetta?edit=${p.id}&groupId=${p.groupId}` : `/nuova-ricetta?edit=${p.id}`
+}
+
 async function loadMine() {
   loadingMine.value = true
-  const q = query(collection(db, 'recipes'), where('authorId', '==', getUserId()))
-  const snap = await getDocs(q)
-  myPosts.value = sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  // I post pubblici/brand restano nella collezione in cima; quelli di gruppo
+  // vivono ora in sotto-collezioni per gruppo (vedi firestore.rules). Niente
+  // query "collection group" qui: l'accesso a quella sotto-collezione è
+  // vincolato all'appartenenza al gruppo (variabile da un gruppo all'altro),
+  // quindi una query che ne attraversa tanti insieme non è dimostrabile per
+  // Firestore e fallisce sempre con permission-denied. Interroghiamo invece
+  // un gruppo alla volta, solo quelli a cui si appartiene ora (un post
+  // lasciato in un gruppo abbandonato nel frattempo non comparirà più qui).
+  const groupIds = getJoinedGroupIds().slice(0, 10)
+  const [topSnap, ...groupSnaps] = await Promise.all([
+    getDocs(query(collection(db, 'recipes'), where('authorId', '==', getUserId()))),
+    ...groupIds.map((gid) =>
+      getDocs(query(collection(db, 'groups', gid, 'recipes'), where('authorId', '==', getUserId())))
+    )
+  ])
+  const all = [
+    ...topSnap.docs,
+    ...groupSnaps.flatMap((snap) => snap.docs)
+  ].map((d) => ({ id: d.id, ...d.data() }))
+  myPosts.value = sortByDateDesc(all)
   loadingMine.value = false
 }
 
@@ -77,10 +102,32 @@ onMounted(() => {
 async function loadSaved() {
   loadingSaved.value = true
   const ids = getSavedRecipeIds()
-  const docs = await Promise.all(ids.map((id) => getDoc(doc(db, 'recipes', id))))
-  savedPosts.value = sortByDateDesc(
-    docs.filter((d) => d.exists()).map((d) => ({ id: d.id, ...d.data() }))
-  )
+  const groupIds = getJoinedGroupIds().slice(0, 10)
+
+  const topDocs = await Promise.all(ids.map((id) => getDoc(doc(db, 'recipes', id))))
+  const found = new Map()
+  topDocs.forEach((snap, i) => {
+    if (snap.exists()) found.set(ids[i], { id: snap.id, ...snap.data() })
+  })
+
+  // Un id salvato non trovato in cima è probabilmente un post di gruppo: lo
+  // cerchiamo nelle sotto-collezioni dei gruppi a cui l'utente appartiene
+  // (gli stessi limiti di visibilità delle regole di sicurezza si applicano
+  // comunque: un post di un gruppo lasciato non sarà più raggiungibile).
+  const missingIds = ids.filter((id) => !found.has(id))
+  if (missingIds.length && groupIds.length) {
+    await Promise.all(missingIds.map(async (id) => {
+      for (const groupId of groupIds) {
+        const snap = await getDoc(doc(db, 'groups', groupId, 'recipes', id))
+        if (snap.exists()) {
+          found.set(id, { id: snap.id, ...snap.data() })
+          return
+        }
+      }
+    }))
+  }
+
+  savedPosts.value = sortByDateDesc(ids.filter((id) => found.has(id)).map((id) => found.get(id)))
   loadingSaved.value = false
 }
 
@@ -88,13 +135,16 @@ watch(tab, (t) => {
   if (t === 'salvati') loadSaved()
 })
 
-async function deletePost(id) {
+async function deletePost(p) {
   if (!confirm('Eliminare definitivamente questo post?')) return
   try {
-    await deleteDoc(doc(db, 'recipes', id))
+    const ref = p.groupId
+      ? doc(db, 'groups', p.groupId, 'recipes', p.id)
+      : doc(db, 'recipes', p.id)
+    await deleteDoc(ref)
     // Niente onSnapshot: togliamo subito il post dalla lista locale invece
     // di aspettare un ascoltatore che rilevi la cancellazione.
-    myPosts.value = myPosts.value.filter((p) => p.id !== id)
+    myPosts.value = myPosts.value.filter((post) => post.id !== p.id)
   } catch (err) {
     console.error('Errore nell\'eliminare il post:', err)
   }
