@@ -50,6 +50,26 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Un aggiornamento di reactionCounts è valido solo se corrisponde a UN
+    // singolo evento utente: aggiungere una reazione (+1 su una chiave),
+    // toglierla (-1 su una chiave), o cambiarla direttamente (+1 su una
+    // chiave e -1 su un'altra, nella STESSA scrittura — toggleReaction() in
+    // ReactionBar.vue fa esattamente questo quando si passa da una reazione
+    // a un'altra senza prima deselezionare). Blocca un client che scrivesse
+    // conteggi arbitrari bypassando l'app (difesa in profondità: la
+    // transazione in ReactionBar.vue garantisce già la correttezza per un
+    // client onesto, questa regola la garantisce anche per uno che non lo è).
+    function reactionCountsValid(oldC, newC) {
+      let dC = newC.cucinarlo - oldC.cucinarlo;
+      let dM = newC.mangiarlo - oldC.mangiarlo;
+      let dN = newC.nonMiPiace - oldC.nonMiPiace;
+      return dC >= -1 && dC <= 1 && dM >= -1 && dM <= 1 && dN >= -1 && dN <= 1
+        && (dC + dM + dN) >= -1 && (dC + dM + dN) <= 1
+        && !(dC == 1 && dM == 1) && !(dC == 1 && dN == 1) && !(dM == 1 && dN == 1)
+        && !(dC == -1 && dM == -1) && !(dC == -1 && dN == -1) && !(dM == -1 && dN == -1)
+        && newC.cucinarlo >= 0 && newC.mangiarlo >= 0 && newC.nonMiPiace >= 0;
+    }
+
     // --- USERS ---
     match /users/{uid} {
       // Il profilo (nickname, avatar) è leggibile da chiunque sia loggato:
@@ -200,7 +220,9 @@ service cloud.firestore {
         // un post in un gruppo diverso non è più un update, ma elimina +
         // ricrea nel posto giusto (gestito dal client in NewRecipeView.vue).
         allow update: if
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts']) && isMember())
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts'])
+            && isMember()
+            && reactionCountsValid(resource.data.reactionCounts, request.resource.data.reactionCounts))
           ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps'])
             && isSignedIn() && resource.data.authorId == request.auth.uid);
@@ -259,7 +281,9 @@ service cloud.firestore {
       allow update: if
         // Reazioni: chiunque sia loggato può aggiornare i conteggi (le
         // ricette qui sono sempre leggibili da tutti, brand o pubbliche).
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts']) && isSignedIn())
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts'])
+          && isSignedIn()
+          && reactionCountsValid(resource.data.reactionCounts, request.resource.data.reactionCounts))
         ||
         // Modifica contenuti (Gestione post): solo l'autore. Le ricette
         // brand non hanno authorId (restano null), quindi non sono mai
