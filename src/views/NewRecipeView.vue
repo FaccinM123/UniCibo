@@ -2,7 +2,12 @@
   <div class="uc-form-page">
     <h1 class="uc-page-title">{{ editingId ? 'Modifica ricetta' : 'Nuova ricetta' }}</h1>
 
-    <form class="uc-form" @submit.prevent="submit">
+    <v-alert v-if="groupsLoaded && !myGroups.length" type="info" variant="tonal" class="mb-4">
+      Non fai ancora parte di nessun gruppo: serve almeno un gruppo per pubblicare.
+      <RouterLink to="/gruppi">Crea o unisciti a un gruppo</RouterLink>.
+    </v-alert>
+
+    <form v-else class="uc-form" @submit.prevent="submit">
       <div>
         <p class="uc-label">Titolo</p>
         <v-text-field v-model="title" placeholder="Es. Pasta alla carbonara" variant="outlined" density="comfortable" hide-details required />
@@ -37,10 +42,23 @@
       <div>
         <p class="uc-label">Destinazione</p>
         <v-select
-          v-model="destination"
-          :items="destinationItems"
+          v-if="editingId"
+          v-model="editDestination"
+          :items="myGroups"
           item-title="name"
           item-value="id"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        />
+        <v-select
+          v-else
+          v-model="selectedGroupIds"
+          :items="myGroups"
+          item-title="name"
+          item-value="id"
+          multiple
+          chips
           variant="outlined"
           density="comfortable"
           hide-details
@@ -54,16 +72,17 @@
         size="large"
         class="uc-pill-btn"
         :loading="saving"
-        :disabled="!title.trim() || !destination"
+        :disabled="!title.trim() || (editingId ? !editDestination : !selectedGroupIds.length)"
       >
         {{ editingId ? 'Salva modifiche' : 'Pubblica' }}
       </v-btn>
+      <p v-if="publishError" class="uc-error">{{ publishError }}</p>
     </form>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc,
@@ -73,13 +92,14 @@ import { db } from '@/firebase.js'
 import { getUserId, getNickname, getJoinedGroupIds } from '@/identity.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
 
-const PUBLIC_OPTION = { id: '__public__', name: 'Pubblico (visibile a tutti)' }
-
 const router = useRouter()
 const route = useRoute()
 
 const myGroups = ref([])
-const destination = ref(PUBLIC_OPTION.id)
+const selectedGroupIds = ref([])
+const editDestination = ref(null)
+const publishError = ref('')
+const groupsLoaded = ref(false)
 const title = ref('')
 const imageUrl = ref('')
 const imageError = ref('')
@@ -93,8 +113,6 @@ const editingId = ref(route.query.edit || null)
 // destinazione è cambiata e serve spostare il documento (vedi submit()).
 const editingGroupId = ref(route.query.groupId || null)
 
-const destinationItems = computed(() => [PUBLIC_OPTION, ...myGroups.value])
-
 function recipeDocRef(id, groupId) {
   return groupId ? doc(db, 'groups', groupId, 'recipes', id) : doc(db, 'recipes', id)
 }
@@ -105,6 +123,7 @@ onMounted(async () => {
     const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids), limit(10)))
     myGroups.value = snap.docs.map((d) => ({ id: d.id, name: d.data().name }))
   }
+  groupsLoaded.value = true
 
   if (editingId.value) {
     const snapRecipe = await getDoc(recipeDocRef(editingId.value, editingGroupId.value))
@@ -114,14 +133,17 @@ onMounted(async () => {
       imageUrl.value = r.imageUrl || ''
       ingredientsRaw.value = (r.ingredients || []).join('\n')
       stepsRaw.value = (r.steps || []).join('\n')
-      destination.value = r.visibility === 'public' ? PUBLIC_OPTION.id : r.groupId
+      // Un vecchio post "pubblico" (visibility:'public', groupId:null) non ha
+      // più una destinazione valida da preselezionare: editDestination resta
+      // vuoto, l'autore deve scegliere un gruppo per poter salvare.
+      editDestination.value = r.visibility === 'public' ? null : r.groupId
     }
     return
   }
 
   const preselected = route.query.groupId
   if (preselected && myGroups.value.some((g) => g.id === preselected)) {
-    destination.value = preselected
+    selectedGroupIds.value = [preselected]
   }
 })
 
@@ -140,14 +162,11 @@ async function onFileChange(e) {
 }
 
 async function submit() {
-  if (!title.value.trim() || !destination.value) return
+  if (!title.value.trim()) return
+  if (editingId.value ? !editDestination.value : !selectedGroupIds.value.length) return
   saving.value = true
+  publishError.value = ''
   try {
-    const isPublic = destination.value === PUBLIC_OPTION.id
-    const newGroupId = isPublic ? null : destination.value
-    // Le ricette di gruppo vivono ora in groups/{groupId}/recipes (vedi
-    // firestore.rules): "dove" un post vive è il suo PERCORSO, non più un
-    // campo. Non c'è più bisogno di fotografare i membri del gruppo qui.
     const fields = {
       title: title.value.trim(),
       imageUrl: imageUrl.value || null,
@@ -156,26 +175,25 @@ async function submit() {
     }
 
     if (editingId.value) {
+      const newGroupId = editDestination.value
       const samePlace = newGroupId === editingGroupId.value
       if (samePlace) {
         await updateDoc(recipeDocRef(editingId.value, editingGroupId.value), fields)
-        router.push(newGroupId ? `/gruppi/${newGroupId}/ricetta/${editingId.value}` : `/ricetta/${editingId.value}`)
+        router.push(`/gruppi/${newGroupId}/ricetta/${editingId.value}`)
       } else {
-        // Cambio di destinazione (pubblico<->gruppo, o gruppo A->gruppo B):
-        // il documento va ricreato nel posto giusto. Reazioni/commenti non
-        // vengono portati con sé (si riparte da zero) — semplificazione
-        // accettata: spostare anche le sotto-collezioni richiederebbe una
-        // Cloud Function, fuori dallo stack di questo progetto.
+        // Cambio di gruppo: il documento va ricreato nel posto giusto.
+        // Reazioni/commenti non vengono portati con sé (si riparte da
+        // zero) — semplificazione accettata: spostare anche le sotto-
+        // collezioni richiederebbe una Cloud Function, fuori dallo stack
+        // di questo progetto.
         const oldSnap = await getDoc(recipeDocRef(editingId.value, editingGroupId.value))
         const old = oldSnap.data() || {}
-        const newRef = newGroupId
-          ? doc(collection(db, 'groups', newGroupId, 'recipes'))
-          : doc(collection(db, 'recipes'))
+        const newRef = doc(collection(db, 'groups', newGroupId, 'recipes'))
         await setDoc(newRef, {
           ...fields,
           source: 'group',
           brandName: null,
-          visibility: newGroupId ? 'group' : 'public',
+          visibility: 'group',
           groupId: newGroupId,
           authorNickname: old.authorNickname || getNickname() || 'Anonimo',
           authorId: old.authorId || getUserId(),
@@ -183,33 +201,34 @@ async function submit() {
           createdAt: serverTimestamp()
         })
         await deleteDoc(recipeDocRef(editingId.value, editingGroupId.value))
-        router.push(newGroupId ? `/gruppi/${newGroupId}/ricetta/${newRef.id}` : `/ricetta/${newRef.id}`)
+        router.push(`/gruppi/${newGroupId}/ricetta/${newRef.id}`)
       }
     } else {
-      const docRef = newGroupId
-        ? await addDoc(collection(db, 'groups', newGroupId, 'recipes'), {
+      // Copie indipendenti, una per gruppo selezionato: stesso schema di
+      // scrittura di sempre, ripetuto. allSettled invece di Promise.all,
+      // così un fallimento su un gruppo non annulla le copie già create
+      // con successo negli altri.
+      const results = await Promise.allSettled(
+        selectedGroupIds.value.map((gid) =>
+          addDoc(collection(db, 'groups', gid, 'recipes'), {
             ...fields,
             source: 'group',
             brandName: null,
             visibility: 'group',
-            groupId: newGroupId,
+            groupId: gid,
             authorNickname: getNickname() || 'Anonimo',
             authorId: getUserId(),
             reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
             createdAt: serverTimestamp()
           })
-        : await addDoc(collection(db, 'recipes'), {
-            ...fields,
-            source: 'group',
-            brandName: null,
-            visibility: 'public',
-            groupId: null,
-            authorNickname: getNickname() || 'Anonimo',
-            authorId: getUserId(),
-            reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
-            createdAt: serverTimestamp()
-          })
-      router.push(newGroupId ? `/gruppi/${newGroupId}/ricetta/${docRef.id}` : `/ricetta/${docRef.id}`)
+        )
+      )
+      const failures = results.filter((r) => r.status === 'rejected')
+      if (failures.length) {
+        console.error('Errore nel pubblicare in alcuni gruppi:', failures)
+        publishError.value = `Pubblicato in ${results.length - failures.length} di ${results.length} gruppi.`
+      }
+      router.push('/gestione-post')
     }
   } catch (err) {
     console.error('Errore nel pubblicare la ricetta:', err)
