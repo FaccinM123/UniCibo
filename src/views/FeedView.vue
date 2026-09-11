@@ -1,33 +1,35 @@
 <template>
   <div class="uc-feed">
-    <template v-if="groupId">
-      <RouterLink v-if="group" :to="`/gruppi/${groupId}/dettagli`" class="uc-group-header">
-        <img v-if="group.photoUrl" :src="group.photoUrl" alt="" class="uc-group-icon uc-group-icon-photo" />
-        <div v-else class="uc-group-icon" :style="{ background: avatarColor(groupId) }">
-          <v-icon icon="mdi-account-group" size="20" color="white" />
-        </div>
-        <div class="uc-group-header-text">
-          <div class="uc-group-name">{{ group.name }}</div>
-          <div class="uc-group-meta">{{ group.memberIds.length }} partecipanti · tocca per i dettagli</div>
-        </div>
-        <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
-      </RouterLink>
-    </template>
-    <h1 v-else class="uc-page-title">Feed</h1>
+    <PullToRefresh :refreshing="loading" @refresh="load">
+      <template v-if="groupId">
+        <RouterLink v-if="group" :to="`/gruppi/${groupId}/dettagli`" class="uc-group-header">
+          <img v-if="group.photoUrl" :src="group.photoUrl" alt="" class="uc-group-icon uc-group-icon-photo" />
+          <div v-else class="uc-group-icon" :style="{ background: avatarColor(groupId) }">
+            <v-icon icon="mdi-account-group" size="20" color="white" />
+          </div>
+          <div class="uc-group-header-text">
+            <div class="uc-group-name">{{ group.name }}</div>
+            <div class="uc-group-meta">{{ group.memberIds.length }} partecipanti · tocca per i dettagli</div>
+          </div>
+          <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
+        </RouterLink>
+      </template>
+      <h1 v-else class="uc-page-title">Feed</h1>
 
-    <v-alert v-if="!groupId && !joinedGroupIds.length" type="info" variant="tonal" class="mb-4">
-      Non fai ancora parte di nessun gruppo: vedi solo le ricette consigliate.
-      <RouterLink to="/gruppi">Crea o unisciti a un gruppo</RouterLink>.
-    </v-alert>
+      <v-alert v-if="!groupId && !joinedGroupIds.length" type="info" variant="tonal" class="mb-4">
+        Non fai ancora parte di nessun gruppo: vedi solo le ricette consigliate.
+        <RouterLink to="/gruppi">Crea o unisciti a un gruppo</RouterLink>.
+      </v-alert>
 
-    <v-progress-linear v-if="loading" indeterminate class="mb-4" />
-    <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
+      <v-progress-linear v-if="loading" indeterminate class="mb-4" />
+      <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
 
-    <RecipeCard v-for="recipe in recipes" :key="recipe.id" :recipe="recipe" />
+      <RecipeCard v-for="recipe in recipes" :key="recipe.id" :recipe="recipe" />
 
-    <p v-if="!loading && !recipes.length" class="uc-empty">
-      Nessuna ricetta da mostrare per ora.
-    </p>
+      <p v-if="!loading && !recipes.length" class="uc-empty">
+        Nessuna ricetta da mostrare per ora.
+      </p>
+    </PullToRefresh>
   </div>
 </template>
 
@@ -41,6 +43,7 @@ import { db } from '@/firebase.js'
 import { getJoinedGroupIds } from '@/identity.js'
 import { avatarColor } from '@/utils/avatar.js'
 import RecipeCard from '@/components/RecipeCard.vue'
+import PullToRefresh from '@/components/PullToRefresh.vue'
 
 const props = defineProps({
   groupId: { type: String, default: null }
