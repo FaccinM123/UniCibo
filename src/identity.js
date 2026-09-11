@@ -100,12 +100,13 @@ export async function toggleSavedRecipeId(recipeId) {
   return toggleSavedRecipeIdOnProfile(authUser.value.uid, recipeId)
 }
 
-// Risolve il nickname di un QUALSIASI utente (non solo il proprio) leggendo
-// il suo users/{uid} — sostituisce la vecchia euristica "prendi il nickname
-// dall'ultimo post pubblicato", ora che un vero profilo esiste sempre.
-export async function resolveNickname(uid) {
+// Risolve nickname + bio di un QUALSIASI utente (non solo il proprio)
+// leggendo il suo users/{uid} in un'unica lettura — sostituisce la vecchia
+// euristica "prendi il nickname dall'ultimo post pubblicato", ora che un
+// vero profilo esiste sempre.
+export async function resolveProfile(uid) {
   const p = await getUserProfileById(uid)
-  return p?.nickname || 'Utente'
+  return { nickname: p?.nickname || 'Utente', bio: p?.bio || '' }
 }
 
 export async function deleteAccount() {

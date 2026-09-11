@@ -6,6 +6,7 @@
         {{ avatarInitial(displayNickname) }}
       </div>
       <h1 class="uc-member-name">{{ displayNickname }}</h1>
+      <p v-if="bio" class="uc-member-bio">{{ bio }}</p>
     </div>
 
     <h2 class="uc-label">Post pubblicati</h2>
@@ -30,7 +31,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/firebase.js'
-import { getUserId, getAvatarPhoto, resolveNickname, getJoinedGroupIds } from '@/identity.js'
+import { getUserId, getAvatarPhoto, resolveProfile, getJoinedGroupIds } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 
 const props = defineProps({
@@ -41,6 +42,7 @@ const route = useRoute()
 const posts = ref([])
 const loading = ref(true)
 const nickname = ref(route.query.nickname || 'Utente')
+const bio = ref('')
 
 const isMe = computed(() => props.memberId === getUserId())
 const avatarPhoto = computed(() => (isMe.value ? getAvatarPhoto() : ''))
@@ -49,7 +51,7 @@ const displayNickname = computed(() => nickname.value)
 onMounted(async () => {
   // Il vero profilo esiste sempre ora (users/{uid}): niente più bisogno di
   // indovinare il nickname dall'ultimo post pubblicato.
-  resolveNickname(props.memberId).then((n) => { nickname.value = n })
+  resolveProfile(props.memberId).then((p) => { nickname.value = p.nickname; bio.value = p.bio })
 
   const topSnap = await getDocs(query(collection(db, 'recipes'), where('authorId', '==', props.memberId)))
   let groupDocs = []
@@ -113,6 +115,14 @@ function formatDate(ts) {
   font-weight: 700;
   margin: 0;
   color: var(--uc-text);
+}
+
+.uc-member-bio {
+  font-size: 13.5px;
+  color: var(--uc-text-muted);
+  margin: 6px auto 0;
+  max-width: 320px;
+  line-height: 1.4;
 }
 
 .uc-label {
