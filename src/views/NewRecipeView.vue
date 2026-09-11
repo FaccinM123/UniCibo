@@ -40,6 +40,21 @@
       </div>
 
       <div>
+        <p class="uc-label">Tag</p>
+        <v-chip-group v-model="selectedTags" multiple column>
+          <v-chip
+            v-for="opt in TAG_OPTIONS"
+            :key="opt.id"
+            :value="opt.id"
+            variant="outlined"
+            filter
+          >
+            {{ opt.label }}
+          </v-chip>
+        </v-chip-group>
+      </div>
+
+      <div>
         <p class="uc-label">Destinazione</p>
         <v-select
           v-if="editingId"
@@ -91,6 +106,7 @@ import {
 import { db } from '@/firebase.js'
 import { getUserId, getNickname, getJoinedGroupIds } from '@/identity.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
+import { TAG_OPTIONS } from '@/utils/tags.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -98,6 +114,7 @@ const route = useRoute()
 const myGroups = ref([])
 const selectedGroupIds = ref([])
 const editDestination = ref(null)
+const selectedTags = ref([])
 const publishError = ref('')
 const groupsLoaded = ref(false)
 const title = ref('')
@@ -137,6 +154,7 @@ onMounted(async () => {
       // più una destinazione valida da preselezionare: editDestination resta
       // vuoto, l'autore deve scegliere un gruppo per poter salvare.
       editDestination.value = r.visibility === 'public' ? null : r.groupId
+      selectedTags.value = r.tags || []
     }
     return
   }
@@ -171,7 +189,8 @@ async function submit() {
       title: title.value.trim(),
       imageUrl: imageUrl.value || null,
       ingredients: ingredientsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
-      steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean)
+      steps: stepsRaw.value.split('\n').map((s) => s.trim()).filter(Boolean),
+      tags: selectedTags.value
     }
 
     if (editingId.value) {
