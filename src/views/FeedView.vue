@@ -24,7 +24,7 @@
       <v-progress-linear v-if="loading" indeterminate class="mb-4" />
       <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
 
-      <div class="uc-tag-filter">
+      <div v-if="!loading && !loadError && hasAnyTaggedRecipe" class="uc-tag-filter">
         <v-chip-group v-model="filterTags" multiple column>
           <v-chip
             v-for="opt in TAG_OPTIONS"
@@ -101,6 +101,8 @@ const recipes = computed(() => {
   // Firestore); qui le intercalo in un'unica lista, sempre per data decrescente.
   return merged.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
 })
+
+const hasAnyTaggedRecipe = computed(() => recipes.value.some((r) => r.tags?.length))
 
 const filteredRecipes = computed(() => {
   if (!filterTags.value.length) return recipes.value
@@ -181,6 +183,8 @@ async function loadHomeFeed() {
 }
 
 function load() {
+  filterTags.value = []
+  filterMode.value = 'or'
   if (props.groupId) {
     loadGroupFeed(props.groupId)
   } else {
