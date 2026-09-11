@@ -34,7 +34,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import {
-  collection, query, where, orderBy, getDocs, getDoc, doc, documentId
+  collection, query, where, orderBy, getDocs, getDoc, doc, documentId, limit
 } from 'firebase/firestore'
 
 import { db } from '@/firebase.js'
@@ -135,7 +135,7 @@ async function loadHomeFeed() {
       const ids = joinedGroupIds.slice(0, 10) // limite della clausola 'in' di Firestore
 
       const groupsSnap = await getDocs(
-        query(collection(db, 'groups'), where(documentId(), 'in', ids))
+        query(collection(db, 'groups'), where(documentId(), 'in', ids), limit(10))
       )
       groupNamesById.value = Object.fromEntries(
         groupsSnap.docs.map((d) => [d.id, d.data().name])

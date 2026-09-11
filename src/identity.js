@@ -9,7 +9,7 @@ import {
   signOutUser, resetPassword, deleteAuthAccount
 } from '@/auth.js'
 import {
-  profile, loadUserProfile, createUserProfile, getUserProfileById,
+  profile, savedRecipeIds, loadUserProfile, createUserProfile, getUserProfileById,
   updateOwnProfile,
   addJoinedGroupId as addJoinedGroupIdOnProfile,
   removeJoinedGroupId as removeJoinedGroupIdFromProfile,
@@ -37,6 +37,7 @@ watch(authUser, async (user) => {
     await loadUserProfile(user.uid)
   } else {
     profile.value = null
+    savedRecipeIds.value = []
   }
   profileReady.value = true
 }, { immediate: true })
@@ -68,7 +69,7 @@ export function getJoinedGroupIds() {
 }
 
 export function getSavedRecipeIds() {
-  return profile.value?.savedRecipeIds || []
+  return savedRecipeIds.value || []
 }
 
 export function isRecipeSaved(recipeId) {

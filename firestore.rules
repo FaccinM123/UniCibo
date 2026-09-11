@@ -11,6 +11,11 @@ rules_version = '2';
 // autenticato che elenca tutti i gruppi può unirsi a uno qualsiasi senza
 // avere il codice. Una vera barriera richiederebbe una Cloud Function (fuori
 // dallo stack di questo progetto); va dichiarato come limite, non risolto qui.
+// Mitigazione applicata (gratuita, dentro le regole): le liste di gruppi
+// sono limitate a un piccolo numero di risultati per richiesta (vedi
+// `allow list` più sotto) — non chiude il limite (si può comunque leggere un
+// gruppo alla volta), ma rende impossibile scaricare l'intera collezione in
+// una sola chiamata.
 //
 // STRUTTURA RICETTE (importante): le ricette pubbliche/brand vivono in un
 // unico elenco in cima (/recipes/{id}); le ricette di un gruppo vivono
@@ -49,21 +54,20 @@ service cloud.firestore {
     match /users/{uid} {
       // Il profilo (nickname, avatar) è leggibile da chiunque sia loggato:
       // serve per mostrare autori/membri di gruppo ovunque nell'app.
-      // NOTA: questo espone anche joinedGroupIds/savedRecipeIds a chiunque
-      // sia loggato (Firestore non ha sicurezza a livello di singolo campo
-      // dentro un documento) — limite consapevole, non affrontato in questo
-      // task; un'eventuale correzione sposterebbe savedRecipeIds in una
-      // sotto-collezione privata a parte.
+      // NOTA: questo espone anche joinedGroupIds a chiunque sia loggato
+      // (Firestore non ha sicurezza a livello di singolo campo dentro un
+      // documento) — limite consapevole, non affrontato qui. savedRecipeIds
+      // invece vive in una sotto-collezione privata a parte (sotto), proprio
+      // per non essere soggetto a questa stessa apertura.
       allow read: if isSignedIn();
       allow create: if isOwner(uid)
                     && request.resource.data.keys().hasAll(
-                         ['nickname', 'bio', 'avatarPhoto', 'joinedGroupIds', 'savedRecipeIds', 'createdAt']
+                         ['nickname', 'bio', 'avatarPhoto', 'joinedGroupIds', 'createdAt']
                        )
                     && request.resource.data.nickname is string
                     && request.resource.data.bio is string
                     && request.resource.data.avatarPhoto is string
                     && request.resource.data.joinedGroupIds is list
-                    && request.resource.data.savedRecipeIds is list
                     && request.resource.data.createdAt is timestamp;
       // Le stesse verifiche di tipo del create si applicano anche
       // all'update: request.resource.data rappresenta sempre il documento
@@ -73,9 +77,21 @@ service cloud.firestore {
                     && request.resource.data.nickname is string
                     && request.resource.data.bio is string
                     && request.resource.data.avatarPhoto is string
-                    && request.resource.data.joinedGroupIds is list
-                    && request.resource.data.savedRecipeIds is list;
+                    && request.resource.data.joinedGroupIds is list;
       allow delete: if isOwner(uid);
+
+      // Dati privati (oggi solo savedRecipeIds): SOLO il proprietario può
+      // leggerli o scriverli, a differenza del documento profilo sopra che
+      // è leggibile da chiunque sia loggato. Separato in una sotto-
+      // collezione perché Firestore non permette regole diverse per campi
+      // diversi dello stesso documento.
+      match /private/{docId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+                              && request.resource.data.keys().hasOnly(['savedRecipeIds'])
+                              && request.resource.data.savedRecipeIds is list;
+        allow delete: if isOwner(uid);
+      }
     }
 
     // --- GROUPS ---
@@ -83,8 +99,14 @@ service cloud.firestore {
       // Leggibile da chiunque sia loggato (serve a validare un codice
       // invito prima di essere membro — vedi limite dichiarato in cima al
       // file: questa stessa apertura è ciò che rende il codice invito non
-      // davvero segreto).
-      allow read: if isSignedIn();
+      // davvero segreto). Un singolo get() (leggere UN gruppo di cui già
+      // si conosce l'id) resta libero; una list/query è invece limitata a
+      // pochi risultati per richiesta, così nessuno può scaricare l'intera
+      // collezione `groups` in una sola chiamata — ogni query legittima
+      // dell'app (i propri gruppi via 'in', la ricerca per codice invito)
+      // passa già un limit() esplicito che rientra in questo tetto.
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && request.query.limit is int && request.query.limit <= 10;
 
       allow create: if isSignedIn()
                     && request.resource.data.memberIds is list

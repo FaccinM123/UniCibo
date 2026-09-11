@@ -67,7 +67,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   collection, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc,
-  query, where, getDocs, documentId, serverTimestamp
+  query, where, getDocs, documentId, limit, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getNickname, getJoinedGroupIds } from '@/identity.js'
@@ -102,7 +102,7 @@ function recipeDocRef(id, groupId) {
 onMounted(async () => {
   const ids = getJoinedGroupIds().slice(0, 10) // limite della clausola 'in' di Firestore
   if (ids.length) {
-    const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids)))
+    const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids), limit(10)))
     myGroups.value = snap.docs.map((d) => ({ id: d.id, name: d.data().name }))
   }
 

@@ -67,7 +67,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import {
-  collection, addDoc, query, where, getDocs, documentId,
+  collection, addDoc, query, where, getDocs, documentId, limit,
   doc, updateDoc, arrayUnion, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
@@ -100,7 +100,7 @@ async function onFileChange(e) {
 onMounted(async () => {
   const ids = getJoinedGroupIds().slice(0, 10) // limite della clausola 'in' di Firestore
   if (!ids.length) return
-  const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids)))
+  const snap = await getDocs(query(collection(db, 'groups'), where(documentId(), 'in', ids), limit(10)))
   myGroups.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 })
 
@@ -148,7 +148,7 @@ async function joinGroup() {
   if (!code) return
   joining.value = true
   try {
-    const q = query(collection(db, 'groups'), where('inviteCode', '==', code))
+    const q = query(collection(db, 'groups'), where('inviteCode', '==', code), limit(1))
     const snap = await getDocs(q)
     if (snap.empty) {
       joinError.value = 'Codice non valido.'
