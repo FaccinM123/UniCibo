@@ -214,13 +214,16 @@ service cloud.firestore {
                       && request.resource.data.brandName == null
                       && request.resource.data.keys().hasAll(
                            ['title', 'imageUrl', 'ingredients', 'steps', 'source', 'brandName',
-                            'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts', 'createdAt']
+                            'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts',
+                            'tags', 'createdAt']
                          )
                       && request.resource.data.title is string
                       && request.resource.data.ingredients is list
                       && request.resource.data.steps is list
                       && request.resource.data.authorNickname is string
                       && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
+                      && request.resource.data.tags is list
+                      && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
                       && request.resource.data.createdAt is timestamp;
 
         // Modifica: reactionCounts (qualunque membro) oppure i contenuti
@@ -233,8 +236,10 @@ service cloud.firestore {
             && isMember()
             && reactionCountsValid(resource.data.reactionCounts, request.resource.data.reactionCounts))
           ||
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps'])
-            && isSignedIn() && resource.data.authorId == request.auth.uid);
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps', 'tags'])
+            && isSignedIn() && resource.data.authorId == request.auth.uid
+            && request.resource.data.tags is list
+            && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine']));
 
         allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
 
@@ -278,13 +283,16 @@ service cloud.firestore {
                     && request.resource.data.authorId == request.auth.uid
                     && request.resource.data.keys().hasAll(
                          ['title', 'imageUrl', 'ingredients', 'steps', 'source', 'brandName',
-                          'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts', 'createdAt']
+                          'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts',
+                          'tags', 'createdAt']
                        )
                     && request.resource.data.title is string
                     && request.resource.data.ingredients is list
                     && request.resource.data.steps is list
                     && request.resource.data.authorNickname is string
                     && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
+                    && request.resource.data.tags is list
+                    && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
                     && request.resource.data.createdAt is timestamp;
 
       allow update: if
@@ -297,8 +305,10 @@ service cloud.firestore {
         // Modifica contenuti (Gestione post): solo l'autore. Le ricette
         // brand non hanno authorId (restano null), quindi non sono mai
         // modificabili dal client.
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps'])
-          && isSignedIn() && resource.data.authorId == request.auth.uid);
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps', 'tags'])
+          && isSignedIn() && resource.data.authorId == request.auth.uid
+          && request.resource.data.tags is list
+          && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine']));
 
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
 
