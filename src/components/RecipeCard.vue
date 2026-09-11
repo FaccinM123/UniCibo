@@ -28,6 +28,12 @@
       </div>
     </RouterLink>
 
+    <div v-if="tagLabels.length" class="uc-card-tags">
+      <v-chip v-for="label in tagLabels" :key="label" size="x-small" variant="tonal" color="primary">
+        {{ label }}
+      </v-chip>
+    </div>
+
     <div class="uc-card-actions">
       <ReactionBar :recipe-id="recipe.id" :group-id="recipe.groupId" />
       <span class="uc-card-spacer" />
@@ -58,6 +64,7 @@ import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { getUserId, getAvatarPhoto, isRecipeSaved, toggleSavedRecipeId } from '@/identity.js'
+import { TAG_OPTIONS } from '@/utils/tags.js'
 
 const props = defineProps({
   recipe: { type: Object, required: true }
@@ -84,6 +91,10 @@ async function toggleSave() {
 const originLabel = computed(() => {
   if (props.recipe.source === 'brand') return 'Esempio'
   return props.recipe.source === 'group' ? props.recipe.groupName : null
+})
+
+const tagLabels = computed(() => {
+  return (props.recipe.tags || []).map((id) => TAG_OPTIONS.find((t) => t.id === id)?.label || id)
 })
 
 // La foto profilo resta solo su questo dispositivo (vedi identity.js): la
@@ -233,5 +244,12 @@ const formattedDate = computed(() => {
 .uc-card-comments {
   padding: 0 14px 14px;
   border-top: 1px solid var(--uc-border);
+}
+
+.uc-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 14px 8px;
 }
 </style>

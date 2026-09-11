@@ -22,6 +22,12 @@
       <span class="uc-detail-meta">· {{ formattedDate }}</span>
     </div>
 
+    <div v-if="tagLabels.length" class="uc-detail-tags">
+      <v-chip v-for="label in tagLabels" :key="label" size="small" variant="tonal" color="primary">
+        {{ label }}
+      </v-chip>
+    </div>
+
     <div class="uc-detail-reactions">
       <ReactionBar :recipe-id="id" :group-id="groupId" :live="true" />
       <button
@@ -66,6 +72,7 @@ import ReactionBar from '@/components/ReactionBar.vue'
 import CommentList from '@/components/CommentList.vue'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { getUserId, getAvatarPhoto, isRecipeSaved, toggleSavedRecipeId } from '@/identity.js'
+import { TAG_OPTIONS } from '@/utils/tags.js'
 
 const props = defineProps({
   id: { type: String, required: true },
@@ -98,6 +105,10 @@ const formattedDate = computed(() => {
   const date = ts?.toDate ? ts.toDate() : null
   if (!date) return ''
   return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+})
+
+const tagLabels = computed(() => {
+  return (recipe.value?.tags || []).map((id) => TAG_OPTIONS.find((t) => t.id === id)?.label || id)
 })
 </script>
 
@@ -220,5 +231,12 @@ const formattedDate = computed(() => {
 .uc-ingredient-list li,
 .uc-steps-list li {
   margin-bottom: 4px;
+}
+
+.uc-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 8px;
 }
 </style>
