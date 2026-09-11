@@ -77,10 +77,12 @@ async function toggleSave() {
 }
 
 // Le ricette "brand" (source: 'brand', importate da Spoonacular — vedi
-// scripts/import-brand-recipes.mjs) restano tali nello schema, ma non si
-// presentano come contenuto ufficiale: niente etichetta con la fonte
-// esterna, si mescolano nel feed come i post di gruppo.
+// scripts/import-brand-recipes.mjs) sono ora etichettate "Esempio": con
+// "Pubblico" tolto dall'interfaccia di pubblicazione, restano l'unico
+// contenuto nel feed non scritto da un utente reale, e vanno distinte
+// chiaramente da un post di gruppo.
 const originLabel = computed(() => {
+  if (props.recipe.source === 'brand') return 'Esempio'
   return props.recipe.source === 'group' ? props.recipe.groupName : null
 })
 
