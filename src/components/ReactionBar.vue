@@ -18,14 +18,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId } from '@/identity.js'
 
 const props = defineProps({
   recipeId: { type: String, required: true },
-  groupId: { type: String, default: null }
+  groupId: { type: String, default: null },
+  live: { type: Boolean, default: false }
 })
 
 function recipeRef() {
@@ -63,48 +64,85 @@ const counts = ref({})
 const myReaction = ref(null)
 const loading = ref(null)
 
-onMounted(async () => {
+let unsubscribeRecipe = null
+let unsubscribeReaction = null
+
+function stopListening() {
+  if (unsubscribeRecipe) { unsubscribeRecipe(); unsubscribeRecipe = null }
+  if (unsubscribeReaction) { unsubscribeReaction(); unsubscribeReaction = null }
+}
+
+async function loadOnce() {
   const recipeSnap = await getDoc(recipeRef())
   counts.value = recipeSnap.data()?.reactionCounts || {}
 
   const myReactionSnap = await getDoc(reactionRef(userId))
   myReaction.value = myReactionSnap.exists() ? myReactionSnap.data().type : null
+}
+
+function startListening() {
+  unsubscribeRecipe = onSnapshot(recipeRef(), (snap) => {
+    counts.value = snap.data()?.reactionCounts || {}
+  }, (err) => console.error('Errore nell\'ascoltare i conteggi reazioni:', err))
+
+  unsubscribeReaction = onSnapshot(reactionRef(userId), (snap) => {
+    myReaction.value = snap.exists() ? snap.data().type : null
+  }, (err) => console.error('Errore nell\'ascoltare la tua reazione:', err))
+}
+
+onMounted(() => {
+  if (props.live) {
+    startListening()
+  } else {
+    loadOnce()
+  }
 })
 
-// Una sola reazione per utente per ricetta. Cliccare di nuovo la stessa
-// reazione la rimuove (toggle off). Lettura + scrittura separate (non una
-// transazione atomica): per un prototipo con un solo account attivo il
-// rischio di due reazioni concorrenti che si sovrascrivono è accettabile;
-// resta comunque il conteggio denormalizzato (recipes/{id}.reactionCounts)
-// sincronizzato con il documento reactions/{authorLocalId} ad ogni click.
+onUnmounted(stopListening)
+
+// Reazione singola per utente per ricetta, dentro una transazione: lettura
+// e scrittura di reactions/{uid} e recipes/{id}.reactionCounts avvengono
+// atomicamente, così due reazioni concorrenti sulla stessa ricetta non si
+// sovrascrivono più a vicenda (Firestore ritenta la transazione da sola se
+// il documento cambia tra lettura e scrittura).
 async function toggleReaction(type) {
   loading.value = type
   const recipeDoc = recipeRef()
   const myReactionDoc = reactionRef(userId)
 
   try {
-    const recipeSnap = await getDoc(recipeDoc)
-    const myReactionSnap = await getDoc(myReactionDoc)
+    let nextReaction = null
+    await runTransaction(db, async (tx) => {
+      const recipeSnap = await tx.get(recipeDoc)
+      const myReactionSnap = await tx.get(myReactionDoc)
 
-    const currentCounts = recipeSnap.data()?.reactionCounts || {}
-    const previousType = myReactionSnap.exists() ? myReactionSnap.data().type : null
+      const currentCounts = recipeSnap.data()?.reactionCounts || {}
+      const previousType = myReactionSnap.exists() ? myReactionSnap.data().type : null
 
-    const newCounts = { ...currentCounts }
-    if (previousType) {
-      newCounts[previousType] = Math.max(0, (newCounts[previousType] || 0) - 1)
+      const newCounts = { ...currentCounts }
+      if (previousType) {
+        newCounts[previousType] = Math.max(0, (newCounts[previousType] || 0) - 1)
+      }
+
+      if (previousType === type) {
+        tx.delete(myReactionDoc)
+        nextReaction = null
+      } else {
+        newCounts[type] = (newCounts[type] || 0) + 1
+        tx.set(myReactionDoc, { type, updatedAt: serverTimestamp() })
+        nextReaction = type
+      }
+
+      tx.update(recipeDoc, { reactionCounts: newCounts })
+    })
+
+    myReaction.value = nextReaction
+    // In modalità non-live non c'è un ascoltatore che aggiorni counts da
+    // solo: lo rileggiamo a mano. In live arriva già dall'onSnapshot.
+    if (!props.live) {
+      const fresh = await getDoc(recipeDoc)
+      counts.value = fresh.data()?.reactionCounts || {}
     }
-
-    if (previousType === type) {
-      await deleteDoc(myReactionDoc)
-      myReaction.value = null
-    } else {
-      newCounts[type] = (newCounts[type] || 0) + 1
-      await setDoc(myReactionDoc, { type, updatedAt: serverTimestamp() })
-      myReaction.value = type
-    }
-
-    await updateDoc(recipeDoc, { reactionCounts: newCounts })
-    counts.value = newCounts
   } catch (err) {
     console.error('Errore nel salvare la reazione:', err)
   } finally {
