@@ -55,10 +55,17 @@ service cloud.firestore {
     // toglierla (-1 su una chiave), o cambiarla direttamente (+1 su una
     // chiave e -1 su un'altra, nella STESSA scrittura — toggleReaction() in
     // ReactionBar.vue fa esattamente questo quando si passa da una reazione
-    // a un'altra senza prima deselezionare). Blocca un client che scrivesse
-    // conteggi arbitrari bypassando l'app (difesa in profondità: la
-    // transazione in ReactionBar.vue garantisce già la correttezza per un
-    // client onesto, questa regola la garantisce anche per uno che non lo è).
+    // a un'altra senza prima deselezionare). Rende molto più lento e costoso
+    // (una scrittura per ogni unità di conteggio, non istantaneo) un client
+    // che provasse a falsificare i conteggi bypassando l'app — ma non lo
+    // impedisce del tutto: la regola valida ogni scrittura in isolamento
+    // rispetto al valore precedente dello STESSO documento, e non può
+    // verificare se esiste (o manca) il corrispondente documento
+    // reactions/{uid}, quindi una sequenza di scritture "+1" singolarmente
+    // valide, senza mai toccare il proprio documento reactions, può comunque
+    // raggiungere un totale arbitrario (difesa in profondità, non barriera
+    // assoluta: la transazione in ReactionBar.vue garantisce la correttezza
+    // per un client onesto, questa regola alza il costo per uno che non lo è).
     function reactionCountsValid(oldC, newC) {
       let dC = newC.cucinarlo - oldC.cucinarlo;
       let dM = newC.mangiarlo - oldC.mangiarlo;

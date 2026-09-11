@@ -50,7 +50,11 @@ onMounted(() => {
   if (props.live) {
     unsubscribeComments = onSnapshot(
       query(commentsRef(), orderBy('createdAt', 'asc')),
-      (snap) => { comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() })) },
+      (snap) => {
+        comments.value = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.createdAt?.toMillis() ?? Infinity) - (b.createdAt?.toMillis() ?? Infinity))
+      },
       (err) => console.error('Errore nell\'ascoltare i commenti:', err)
     )
   } else {

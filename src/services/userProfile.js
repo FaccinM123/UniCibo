@@ -1,7 +1,7 @@
 // users/{uid}: profilo Firestore che sostituisce localStorage (nickname,
-// bio, foto profilo, gruppi a cui si è aderito). Letture/scritture singole
-// (niente onSnapshot, stesso pattern già in uso nel resto dell'app): dopo
-// ogni scrittura aggiorniamo `profile` a mano.
+// bio, foto profilo, gruppi a cui si è aderito). Questo file usa solo
+// letture/scritture singole (niente onSnapshot): dopo ogni scrittura
+// aggiorniamo `profile` a mano.
 //
 // savedRecipeIds vive invece in users/{uid}/private/data, una sotto-
 // collezione leggibile SOLO dal proprietario (vedi firestore.rules) — a

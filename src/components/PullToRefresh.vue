@@ -4,8 +4,9 @@
     @touchstart="onTouchStart"
     @touchmove="onTouchMove"
     @touchend="onTouchEnd"
+    @touchcancel="onTouchEnd"
   >
-    <div class="uc-ptr-indicator" :style="{ opacity: indicatorOpacity }">
+    <div class="uc-ptr-indicator" :style="{ opacity: indicatorOpacity, transform: `translateY(${offset}px)` }">
       <v-progress-circular
         :indeterminate="refreshing"
         :model-value="refreshing ? undefined : pullRatio * 100"
@@ -37,7 +38,10 @@ const offset = ref(0)
 const triggered = ref(false)
 
 const pullRatio = computed(() => Math.min(offset.value / THRESHOLD, 1))
-const indicatorOpacity = computed(() => (props.refreshing ? 1 : Math.min(offset.value / 30, 1)))
+const indicatorOpacity = computed(() => {
+  if (triggered.value && props.refreshing) return 1
+  return Math.min(offset.value / 30, 1)
+})
 
 function onTouchStart(e) {
   if (window.scrollY > 0) { armed.value = false; return }
