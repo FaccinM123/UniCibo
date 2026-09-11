@@ -63,7 +63,9 @@ service cloud.firestore {
       let dC = newC.cucinarlo - oldC.cucinarlo;
       let dM = newC.mangiarlo - oldC.mangiarlo;
       let dN = newC.nonMiPiace - oldC.nonMiPiace;
-      return dC >= -1 && dC <= 1 && dM >= -1 && dM <= 1 && dN >= -1 && dN <= 1
+      return (dC == -1 || dC == 0 || dC == 1)
+        && (dM == -1 || dM == 0 || dM == 1)
+        && (dN == -1 || dN == 0 || dN == 1)
         && (dC + dM + dN) >= -1 && (dC + dM + dN) <= 1
         && !(dC == 1 && dM == 1) && !(dC == 1 && dN == 1) && !(dM == 1 && dN == 1)
         && !(dC == -1 && dM == -1) && !(dC == -1 && dN == -1) && !(dM == -1 && dN == -1)
