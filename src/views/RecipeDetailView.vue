@@ -23,7 +23,7 @@
     </div>
 
     <div class="uc-detail-reactions">
-      <ReactionBar :recipe-id="id" :group-id="groupId" />
+      <ReactionBar :recipe-id="id" :group-id="groupId" :live="true" />
       <button
         type="button"
         class="uc-save-toggle"
@@ -51,7 +51,7 @@
 
     <section class="uc-detail-section">
       <h2 class="uc-label">Commenti</h2>
-      <CommentList :recipe-id="id" :group-id="groupId" />
+      <CommentList :recipe-id="id" :group-id="groupId" :live="true" />
     </section>
   </div>
 
