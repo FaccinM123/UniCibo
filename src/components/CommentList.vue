@@ -23,14 +23,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { collection, addDoc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getNickname } from '@/identity.js'
 
 const props = defineProps({
   recipeId: { type: String, required: true },
-  groupId: { type: String, default: null }
+  groupId: { type: String, default: null },
+  live: { type: Boolean, default: false }
 })
 
 function commentsRef() {
@@ -43,14 +44,30 @@ const comments = ref([])
 const newComment = ref('')
 const posting = ref(false)
 
-onMounted(async () => {
-  const snap = await getDocs(query(commentsRef(), orderBy('createdAt', 'asc')))
-  comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+let unsubscribeComments = null
+
+onMounted(() => {
+  if (props.live) {
+    unsubscribeComments = onSnapshot(
+      query(commentsRef(), orderBy('createdAt', 'asc')),
+      (snap) => { comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() })) },
+      (err) => console.error('Errore nell\'ascoltare i commenti:', err)
+    )
+  } else {
+    getDocs(query(commentsRef(), orderBy('createdAt', 'asc'))).then((snap) => {
+      comments.value = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    })
+  }
 })
 
-// Niente onSnapshot: il commento appena pubblicato viene aggiunto subito alla
-// lista locale (lo conosciamo già, non serve rileggerlo da Firestore); i
-// commenti di altri utenti compaiono alla prossima apertura della pagina.
+onUnmounted(() => {
+  if (unsubscribeComments) unsubscribeComments()
+})
+
+// In modalità live il commento appena pubblicato arriva già dall'ascoltatore
+// onSnapshot (Step 2): niente push locale, altrimenti comparirebbe due volte
+// (una dal push, una dall'ascoltatore). In modalità non-live (feed) non c'è
+// un ascoltatore, quindi lo aggiungiamo a mano come prima.
 async function postComment() {
   if (!newComment.value.trim()) return
   posting.value = true
@@ -64,7 +81,9 @@ async function postComment() {
       authorNickname,
       createdAt: serverTimestamp()
     })
-    comments.value.push({ id: docRef.id, text, authorId, authorNickname })
+    if (!props.live) {
+      comments.value.push({ id: docRef.id, text, authorId, authorNickname })
+    }
     newComment.value = ''
   } catch (err) {
     console.error('Errore nel pubblicare il commento:', err)
