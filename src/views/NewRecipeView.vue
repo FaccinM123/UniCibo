@@ -226,9 +226,13 @@ async function submit() {
       const failures = results.filter((r) => r.status === 'rejected')
       if (failures.length) {
         console.error('Errore nel pubblicare in alcuni gruppi:', failures)
-        publishError.value = `Pubblicato in ${results.length - failures.length} di ${results.length} gruppi.`
+        const succeeded = results.length - failures.length
+        publishError.value = succeeded > 0
+          ? `Pubblicato in ${succeeded} di ${results.length} gruppi.`
+          : `Errore: non è stato possibile pubblicare in nessuno dei ${results.length} gruppi selezionati.`
+      } else {
+        router.push('/gestione-post')
       }
-      router.push('/gestione-post')
     }
   } catch (err) {
     console.error('Errore nel pubblicare la ricetta:', err)
