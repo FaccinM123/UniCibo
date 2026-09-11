@@ -24,9 +24,28 @@
       <v-progress-linear v-if="loading" indeterminate class="mb-4" />
       <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
 
-      <RecipeCard v-for="recipe in recipes" :key="recipe.id" :recipe="recipe" />
+      <div class="uc-tag-filter">
+        <v-chip-group v-model="filterTags" multiple column>
+          <v-chip
+            v-for="opt in TAG_OPTIONS"
+            :key="opt.id"
+            :value="opt.id"
+            variant="outlined"
+            filter
+            size="small"
+          >
+            {{ opt.label }}
+          </v-chip>
+        </v-chip-group>
+        <v-btn-toggle v-if="filterTags.length > 1" v-model="filterMode" mandatory density="compact" class="mb-2">
+          <v-btn value="or" size="small">Almeno uno</v-btn>
+          <v-btn value="and" size="small">Tutti insieme</v-btn>
+        </v-btn-toggle>
+      </div>
 
-      <p v-if="!loading && !recipes.length" class="uc-empty">
+      <RecipeCard v-for="recipe in filteredRecipes" :key="recipe.id" :recipe="recipe" />
+
+      <p v-if="!loading && !filteredRecipes.length" class="uc-empty">
         Nessuna ricetta da mostrare per ora.
       </p>
     </PullToRefresh>
@@ -42,6 +61,7 @@ import {
 import { db } from '@/firebase.js'
 import { getJoinedGroupIds } from '@/identity.js'
 import { avatarColor } from '@/utils/avatar.js'
+import { TAG_OPTIONS } from '@/utils/tags.js'
 import RecipeCard from '@/components/RecipeCard.vue'
 import PullToRefresh from '@/components/PullToRefresh.vue'
 
@@ -55,6 +75,8 @@ const brandRecipes = ref([])
 const groupRecipes = ref([])
 const groupNamesById = ref({})
 const group = ref(null)
+const filterTags = ref([])
+const filterMode = ref('or')
 
 function handleLoadError(err) {
   console.error('Errore nel caricare il feed:', err)
@@ -78,6 +100,16 @@ const recipes = computed(() => {
   // Le due query arrivano già ordinate per data (orderBy('createdAt','desc') su
   // Firestore); qui le intercalo in un'unica lista, sempre per data decrescente.
   return merged.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+})
+
+const filteredRecipes = computed(() => {
+  if (!filterTags.value.length) return recipes.value
+  return recipes.value.filter((r) => {
+    const rt = r.tags || []
+    return filterMode.value === 'and'
+      ? filterTags.value.every((t) => rt.includes(t))
+      : filterTags.value.some((t) => rt.includes(t))
+  })
 })
 
 async function loadGroupFeed(groupId) {
@@ -216,5 +248,9 @@ watch(() => props.groupId, load)
   color: var(--uc-text-muted);
   font-size: 13.5px;
   padding: 24px 0;
+}
+
+.uc-tag-filter {
+  margin-bottom: 12px;
 }
 </style>
