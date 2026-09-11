@@ -366,15 +366,26 @@ async function submit() {
           })
         )
       )
-      const failures = results.filter((r) => r.status === 'rejected')
-      if (failures.length) {
-        console.error('Errore nel pubblicare in alcuni gruppi:', failures)
-        publishError.value = `Pubblicato in ${results.length - failures.length} di ${results.length} gruppi.`
+      const gids = selectedGroupIds.value
+      const failedGids = gids.filter((_, i) => results[i].status === 'rejected')
+      if (failedGids.length) {
+        const failures = results.filter((r) => r.status === 'rejected')
+        console.error('Errore nel pubblicare nei gruppi:', failedGids, failures)
+        // Si resta sul form e si restringe la selezione ai soli gruppi
+        // falliti: un retry successivo tenta solo quelli, senza duplicare
+        // le copie già create con successo.
+        selectedGroupIds.value = failedGids
+        const succeeded = gids.length - failedGids.length
+        publishError.value = succeeded > 0
+          ? `Pubblicato in ${succeeded} di ${gids.length} gruppi. Riprova per i rimanenti.`
+          : `Errore: non è stato possibile pubblicare in nessuno dei ${gids.length} gruppi selezionati.`
+      } else {
+        router.push('/gestione-post')
       }
-      router.push('/gestione-post')
     }
   } catch (err) {
     console.error('Errore nel pubblicare la ricetta:', err)
+    publishError.value = 'Errore nel salvare la ricetta. Riprova.'
   } finally {
     saving.value = false
   }

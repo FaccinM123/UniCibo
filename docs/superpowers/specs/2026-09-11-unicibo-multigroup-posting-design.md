@@ -28,7 +28,12 @@ post.
   documento (invece che nel percorso), esattamente lo schema che ha causato
   il bug delle query a lista risolto con fatica nel sotto-progetto 1 — le
   copie indipendenti restano coerenti con "il gruppo di un post è il suo
-  percorso, non un campo".
+  percorso, non un campo". Conseguenza accettata di questa scelta: chi
+  condivide 2 o più gruppi con lo stesso autore vedrà quel post multi-gruppo
+  comparire più di una volta nel proprio feed home (una volta per gruppo
+  condiviso, ciascuna come copia indipendente con proprie reazioni e
+  commenti) — non è un bug, ma il prezzo naturale di "copie indipendenti"
+  invece di "un unico post condiviso".
 - **"Pubblico" tolto (per ora) dall'interfaccia**: durante questa
   discussione è emersa una decisione più ampia — niente più destinazione
   "Pubblico" nel form di pubblicazione. Da ora, pubblicare significa scegliere
@@ -143,23 +148,37 @@ const results = await Promise.allSettled(
     })
   )
 )
-const failures = results.filter((r) => r.status === 'rejected')
-if (failures.length) {
-  console.error('Errore nel pubblicare in alcuni gruppi:', failures)
-  publishError.value = `Pubblicato in ${results.length - failures.length} di ${results.length} gruppi.`
+const gids = selectedGroupIds.value
+const failedGids = gids.filter((_, i) => results[i].status === 'rejected')
+if (failedGids.length) {
+  const failures = results.filter((r) => r.status === 'rejected')
+  console.error('Errore nel pubblicare nei gruppi:', failedGids, failures)
+  selectedGroupIds.value = failedGids
+  const succeeded = gids.length - failedGids.length
+  publishError.value = succeeded > 0
+    ? `Pubblicato in ${succeeded} di ${gids.length} gruppi. Riprova per i rimanenti.`
+    : `Errore: non è stato possibile pubblicare in nessuno dei ${gids.length} gruppi selezionati.`
+} else {
+  router.push('/gestione-post')
 }
-router.push('/gestione-post')
 ```
 (`publishError` è un nuovo `ref('')`, mostrato con un `<p class="uc-error">`
 sotto il bottone, stesso stile del messaggio di errore foto già presente.)
-Dopo una pubblicazione multi-gruppo si naviga a "Gestione post" — non esiste
-più "la" pagina di dettaglio del post appena creato, dato che sono N copie
-indipendenti; Gestione post le mostra tutte.
+Dopo una pubblicazione multi-gruppo riuscita per intero si naviga a "Gestione
+post" — non esiste più "la" pagina di dettaglio del post appena creato, dato
+che sono N copie indipendenti; Gestione post le mostra tutte. In caso di
+fallimento parziale o totale si resta sul form: `selectedGroupIds` viene
+ridotto ai soli gruppi falliti, così un secondo tentativo (bottone
+ri-abilitato) ripubblica solo verso quelli, senza duplicare le copie già
+create con successo.
 
 `submit()` — modifica (ramo `if (editingId.value)`): stessa identica logica
 di oggi (stesso-posto vs. cambio-destinazione via cancella+ricrea), solo
 `destination`/`newGroupId` rinominati in `editDestination`/`newGroupId` per
-chiarezza — nessun cambio di comportamento.
+chiarezza — nessun cambio di comportamento. Il `catch` esterno che avvolge
+l'intera `submit()` (compreso questo ramo di modifica) valorizza anch'esso
+`publishError`, così un errore imprevisto (permessi, rete assente) non lascia
+l'utente senza alcun segnale.
 
 ### 2. `FeedView.vue` — via la query dei post pubblici
 
@@ -197,7 +216,14 @@ copie indipendenti senza modifiche), `ReactionBar.vue`/`CommentList.vue`
 - Pubblicazione multi-gruppo parzialmente fallita: `Promise.allSettled`
   invece di `Promise.all`, così un fallimento su un gruppo non annulla le
   copie già create con successo negli altri; messaggio `publishError` con il
-  conteggio di quante sono andate a buon fine.
+  conteggio di quante sono andate a buon fine, e si resta sul form invece di
+  navigare via. `selectedGroupIds` viene ristretto ai soli gruppi falliti,
+  in modo che un secondo tentativo ripubblichi solo verso quelli e non crei
+  copie duplicate nei gruppi già riusciti.
+- Pubblicazione totalmente fallita, o errore imprevisto altrove in
+  `submit()` (es. nel ramo di modifica): stesso `publishError`, valorizzato
+  anche dal `catch` esterno alla funzione — nessun caso in cui l'utente resta
+  con un form silenzioso e un bottone semplicemente ri-abilitato.
 - Nessun gruppo: messaggio + link a `/gruppi`, invece di un form con un
   multi-select vuoto e nessun modo di pubblicare.
 
