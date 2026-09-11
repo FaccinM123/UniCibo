@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f8383"/>
+      <stop offset="100%" stop-color="#e7a479"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#ringGrad)">
+    <rect x="70" y="150" width="14" height="90" rx="7"/>
+    <rect x="93" y="150" width="14" height="90" rx="7"/>
+    <rect x="116" y="150" width="14" height="90" rx="7"/>
+    <rect x="139" y="150" width="14" height="90" rx="7"/>
+    <rect x="65" y="228" width="93" height="26" rx="13"/>
+    <rect x="97" y="242" width="18" height="230" rx="9"/>
+  </g>
+  <path d="M420 140 C398 140 386 194 386 244 C386 271 400 285 420 285 C440 285 454 271 454 244 C454 194 442 140 420 140 Z" fill="url(#ringGrad)"/>
+  <rect x="409" y="285" width="20" height="187" rx="10" fill="url(#ringGrad)"/>
+  <circle cx="256" cy="256" r="150" fill="url(#ringGrad)"/>
+  <circle cx="256" cy="256" r="109" fill="#faf6ef"/>
+  <text x="262" y="296" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="109" font-weight="400">
+    <tspan fill="#3d6b6b" dx="-24">U</tspan><tspan fill="#d98a54" dx="-19">C</tspan>
+  </text>
+  <line x1="205" y1="316" x2="311" y2="316" stroke="url(#ringGrad)" stroke-width="4" stroke-linecap="round"/>
+</svg>
