@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "build:android": "vite build && npx cap sync android",
     "import-brand-recipes": "node scripts/import-brand-recipes.mjs",
     "reset-test-data": "node scripts/reset-test-data.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@mdi/font": "^7.4.47",
     "firebase": "^10.13.0",
     "vue": "^3.4.31",
@@ -18,6 +21,8 @@
     "vuetify": "^3.6.14"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
     "@vitejs/plugin-vue": "^5.0.5",
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.3.0",
