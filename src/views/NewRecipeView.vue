@@ -116,6 +116,7 @@ const selectedGroupIds = ref([])
 const editDestination = ref(null)
 const selectedTags = ref([])
 const publishError = ref('')
+const pendingBatchId = ref(null)
 const groupsLoaded = ref(false)
 const title = ref('')
 const imageUrl = ref('')
@@ -217,6 +218,9 @@ async function submit() {
           authorNickname: old.authorNickname || getNickname() || 'Anonimo',
           authorId: old.authorId || getUserId(),
           reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+          // Se il post spostato faceva parte di una pubblicazione multi-gruppo,
+          // resta collegato alle altre copie (vedi src/utils/mergeBatch.js).
+          batchId: old.batchId || null,
           createdAt: serverTimestamp()
         })
         await deleteDoc(recipeDocRef(editingId.value, editingGroupId.value))
@@ -226,7 +230,19 @@ async function submit() {
       // Copie indipendenti, una per gruppo selezionato: stesso schema di
       // scrittura di sempre, ripetuto. allSettled invece di Promise.all,
       // così un fallimento su un gruppo non annulla le copie già create
-      // con successo negli altri.
+      // con successo negli altri. batchId condiviso tra le copie SOLO
+      // quando la destinazione era più di un gruppo: permette a feed e
+      // gestione-post di mostrarle come un unico post (vedi
+      // src/utils/mergeBatch.js) senza cambiare nulla per le pubblicazioni
+      // a singolo gruppo, il caso più comune. Generato una sola volta e
+      // tenuto in pendingBatchId.value: un retry dopo un fallimento
+      // parziale può ridurre selectedGroupIds a un solo gruppo rimasto,
+      // ma deve restare collegato alle copie già create con successo nel
+      // tentativo precedente, non ripartire con un batchId nuovo (o nullo).
+      if (selectedGroupIds.value.length > 1 && !pendingBatchId.value) {
+        pendingBatchId.value = crypto.randomUUID()
+      }
+      const batchId = pendingBatchId.value
       const results = await Promise.allSettled(
         selectedGroupIds.value.map((gid) =>
           addDoc(collection(db, 'groups', gid, 'recipes'), {
@@ -238,6 +254,7 @@ async function submit() {
             authorNickname: getNickname() || 'Anonimo',
             authorId: getUserId(),
             reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+            batchId,
             createdAt: serverTimestamp()
           })
         )
@@ -253,6 +270,7 @@ async function submit() {
           ? `Pubblicato in ${succeeded} di ${gids.length} gruppi. Riprova per i rimanenti.`
           : `Errore: non è stato possibile pubblicare in nessuno dei ${gids.length} gruppi selezionati.`
       } else {
+        pendingBatchId.value = null
         router.push('/gestione-post')
       }
     }

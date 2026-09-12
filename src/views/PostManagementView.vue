@@ -16,6 +16,7 @@
         </RouterLink>
         <div class="uc-post-body">
           <RouterLink :to="detailPath(p)" class="uc-post-title">{{ p.title }}</RouterLink>
+          <div v-if="p.batchCount > 1" class="uc-post-batch">Pubblicato in {{ p.batchCount }} gruppi</div>
           <div class="uc-post-actions">
             <RouterLink :to="editPath(p)" class="uc-post-edit">
               <v-icon icon="mdi-pencil-outline" size="14" />
@@ -50,6 +51,7 @@ import { ref, watch, onMounted } from 'vue'
 import { collection, query, where, getDocs, doc, getDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getSavedRecipeIds, getJoinedGroupIds } from '@/identity.js'
+import { mergeByBatch } from '@/utils/mergeBatch.js'
 
 const tab = ref('miei')
 const myPosts = ref([])
@@ -90,7 +92,10 @@ async function loadMine() {
     ...topSnap.docs,
     ...groupSnaps.flatMap((snap) => snap.docs)
   ].map((d) => ({ id: d.id, ...d.data() }))
-  myPosts.value = sortByDateDesc(all)
+  // Un post pubblicato in più gruppi comparirebbe qui una volta per gruppo:
+  // mergeByBatch lo riduce a una sola card, con un'indicazione di quanti
+  // gruppi copre (vedi src/utils/mergeBatch.js e il template sopra).
+  myPosts.value = sortByDateDesc(mergeByBatch(all))
   loadingMine.value = false
 }
 
@@ -239,6 +244,13 @@ async function deletePost(p) {
   font-size: 11px;
   color: var(--uc-text-muted);
   margin-top: 4px;
+}
+
+.uc-post-batch {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--uc-primary-strong);
+  margin-top: 3px;
 }
 
 .uc-post-actions {

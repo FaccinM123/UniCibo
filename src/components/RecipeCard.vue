@@ -35,7 +35,7 @@
     </div>
 
     <div class="uc-card-actions">
-      <ReactionBar :recipe-id="recipe.id" :group-id="recipe.groupId" />
+      <ReactionBar :recipe-id="recipe.id" :group-id="recipe.groupId" :extra-copies="recipe.extraCopies || []" />
       <span class="uc-card-spacer" />
       <button
         type="button"

@@ -215,7 +215,7 @@ service cloud.firestore {
                       && request.resource.data.keys().hasAll(
                            ['title', 'imageUrl', 'ingredients', 'steps', 'source', 'brandName',
                             'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts',
-                            'tags', 'createdAt']
+                            'tags', 'batchId', 'createdAt']
                          )
                       && request.resource.data.title is string
                       && request.resource.data.ingredients is list
@@ -224,6 +224,7 @@ service cloud.firestore {
                       && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
                       && request.resource.data.tags is list
                       && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
+                      && (request.resource.data.batchId == null || request.resource.data.batchId is string)
                       && request.resource.data.createdAt is timestamp;
 
         // Modifica: reactionCounts (qualunque membro) oppure i contenuti

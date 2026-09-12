@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId } from '@/identity.js'
@@ -26,13 +26,25 @@ import { getUserId } from '@/identity.js'
 const props = defineProps({
   recipeId: { type: String, required: true },
   groupId: { type: String, default: null },
-  live: { type: Boolean, default: false }
+  live: { type: Boolean, default: false },
+  // Altre copie dello stesso post pubblicato in più gruppi (vedi
+  // src/utils/mergeBatch.js): i loro reactionCounts vengono sommati a
+  // quelli della copia principale solo per il numero mostrato. Toggle e
+  // "la mia reazione" restano sempre sulla copia principale (recipeId/
+  // groupId) — è l'unica scritta quando l'utente reagisce da qui.
+  extraCopies: { type: Array, default: () => [] }
 })
 
 function recipeRef() {
   return props.groupId
     ? doc(db, 'groups', props.groupId, 'recipes', props.recipeId)
     : doc(db, 'recipes', props.recipeId)
+}
+
+function refFor(copy) {
+  return copy.groupId
+    ? doc(db, 'groups', copy.groupId, 'recipes', copy.recipeId)
+    : doc(db, 'recipes', copy.recipeId)
 }
 
 function reactionRef(uid) {
@@ -60,9 +72,20 @@ const options = [
 ]
 
 const userId = getUserId()
-const counts = ref({})
+const primaryCounts = ref({})
+const extraCountsSum = ref({})
 const myReaction = ref(null)
 const loading = ref(null)
+
+// Somma dei reactionCounts delle altre copie, sommata a quella principale
+// (che invece riflette sempre il valore corrente, live o meno).
+const counts = computed(() => {
+  const sum = { ...extraCountsSum.value }
+  for (const type of Object.keys(primaryCounts.value)) {
+    sum[type] = (sum[type] || 0) + (primaryCounts.value[type] || 0)
+  }
+  return sum
+})
 
 let unsubscribeRecipe = null
 let unsubscribeReaction = null
@@ -72,9 +95,20 @@ function stopListening() {
   if (unsubscribeReaction) { unsubscribeReaction(); unsubscribeReaction = null }
 }
 
+async function loadExtraCounts() {
+  if (!props.extraCopies.length) return
+  const snaps = await Promise.all(props.extraCopies.map((copy) => getDoc(refFor(copy))))
+  const sum = {}
+  for (const snap of snaps) {
+    const rc = snap.data()?.reactionCounts || {}
+    for (const type of Object.keys(rc)) sum[type] = (sum[type] || 0) + (rc[type] || 0)
+  }
+  extraCountsSum.value = sum
+}
+
 async function loadOnce() {
   const recipeSnap = await getDoc(recipeRef())
-  counts.value = recipeSnap.data()?.reactionCounts || {}
+  primaryCounts.value = recipeSnap.data()?.reactionCounts || {}
 
   const myReactionSnap = await getDoc(reactionRef(userId))
   myReaction.value = myReactionSnap.exists() ? myReactionSnap.data().type : null
@@ -82,7 +116,7 @@ async function loadOnce() {
 
 function startListening() {
   unsubscribeRecipe = onSnapshot(recipeRef(), (snap) => {
-    counts.value = snap.data()?.reactionCounts || {}
+    primaryCounts.value = snap.data()?.reactionCounts || {}
   }, (err) => console.error('Errore nell\'ascoltare i conteggi reazioni:', err))
 
   unsubscribeReaction = onSnapshot(reactionRef(userId), (snap) => {
@@ -91,6 +125,7 @@ function startListening() {
 }
 
 onMounted(() => {
+  loadExtraCounts()
   if (props.live) {
     startListening()
   } else {
@@ -141,7 +176,7 @@ async function toggleReaction(type) {
     // solo: lo rileggiamo a mano. In live arriva già dall'onSnapshot.
     if (!props.live) {
       const fresh = await getDoc(recipeDoc)
-      counts.value = fresh.data()?.reactionCounts || {}
+      primaryCounts.value = fresh.data()?.reactionCounts || {}
     }
   } catch (err) {
     console.error('Errore nel salvare la reazione:', err)

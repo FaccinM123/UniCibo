@@ -15,6 +15,7 @@
       <template v-if="!editing">
         <h1 class="uc-group-name">{{ group.name }}</h1>
         <p v-if="group.description" class="uc-group-description">{{ group.description }}</p>
+        <p class="uc-invite-code">Codice invito <strong>{{ group.inviteCode }}</strong></p>
         <button v-if="isAdmin" type="button" class="uc-edit-link" @click="startEditing">
           <v-icon icon="mdi-pencil-outline" size="15" />
           Modifica gruppo
@@ -245,6 +246,17 @@ async function removeMember(memberId) {
   line-height: 1.5;
   max-width: 280px;
   margin: 8px auto 0;
+}
+
+.uc-invite-code {
+  font-size: 12.5px;
+  color: var(--uc-text-muted);
+  margin: 10px 0 0;
+}
+
+.uc-invite-code strong {
+  color: var(--uc-text);
+  letter-spacing: 0.04em;
 }
 
 .uc-edit-link {

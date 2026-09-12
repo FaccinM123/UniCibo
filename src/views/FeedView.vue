@@ -62,6 +62,7 @@ import { db } from '@/firebase.js'
 import { getJoinedGroupIds } from '@/identity.js'
 import { avatarColor } from '@/utils/avatar.js'
 import { TAG_OPTIONS } from '@/utils/tags.js'
+import { mergeByBatch } from '@/utils/mergeBatch.js'
 import RecipeCard from '@/components/RecipeCard.vue'
 import PullToRefresh from '@/components/PullToRefresh.vue'
 
@@ -97,9 +98,14 @@ const recipes = computed(() => {
     ...brandRecipes.value,
     ...groupRecipes.value.map((r) => ({ ...r, groupName: groupNamesById.value[r.groupId] || '' }))
   ]
+  // Un post pubblicato in più gruppi a cui appartieni comparirebbe qui una
+  // volta per gruppo: mergeByBatch lo riduce a una sola card (vedi
+  // src/utils/mergeBatch.js). Il feed di un singolo gruppo, sopra, non ne
+  // ha bisogno: mostra sempre e solo la copia di quel gruppo.
+  const deduped = mergeByBatch(merged)
   // Le due query arrivano già ordinate per data (orderBy('createdAt','desc') su
   // Firestore); qui le intercalo in un'unica lista, sempre per data decrescente.
-  return merged.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+  return deduped.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
 })
 
 const hasAnyTaggedRecipe = computed(() => recipes.value.some((r) => r.tags?.length))
