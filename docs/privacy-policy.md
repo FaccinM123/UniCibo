@@ -11,7 +11,11 @@ pagina descrive quali dati raccogliamo e come li usiamo.
   Apple, l'identificatore fornito da quel servizio (gestito tramite
   Firebase Authentication).
 - **Profilo**: nickname, biografia opzionale, foto profilo (se
-  impostata, salvata solo sul tuo dispositivo).
+  impostata). Questi dati sono salvati su Firestore e sono visibili a
+  chiunque usi l'app da autenticato (servono a mostrare il tuo profilo
+  agli altri utenti dei tuoi gruppi).
+- **Ricette salvate**: l'elenco delle ricette che salvi (bookmark) è
+  salvato su Firestore in un'area privata, leggibile solo da te.
 - **Contenuti che crei**: ricette (titolo, ingredienti, procedimento,
   foto), commenti, reazioni alle ricette, gruppi a cui aderisci o che
   crei.
@@ -31,7 +35,9 @@ usa come database e per l'autenticazione.
 
 ## Cancellazione dei dati
 
-Per richiedere la cancellazione del tuo account e dei tuoi dati, scrivi a
+Puoi cancellare definitivamente il tuo account e i tuoi dati in autonomia
+dall'app: apri il tuo profilo e seleziona "Elimina account". In
+alternativa, o per qualsiasi domanda sulla cancellazione, puoi scrivere a
 marco.faccin.schio@gmail.com.
 
 ## Contatti

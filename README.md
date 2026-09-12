@@ -142,8 +142,12 @@ Deploy su Firebase Hosting (richiede essere loggati con
 `sfamati`):
 
 ```bash
-firebase deploy --only hosting
+npx --yes firebase-tools deploy --only hosting
 ```
+
+L'app pubblica è servita dal sito Hosting `unicibo` (progetto Firebase
+`sfamati`): l'URL canonico della privacy policy da inserire nella scheda
+Google Play Console è `https://unicibo.web.app/privacy.html`.
 
 ### Android
 
@@ -159,7 +163,10 @@ The operation couldn't be completed. Unable to locate a Java Runtime.
 Please visit http://www.java.com for information on installing Java.
 ```
 che richiede:
-- JDK 17 o successivo installato e disponibile in PATH
+- JDK 21 o successivo installato e disponibile in PATH (il progetto usa
+  Capacitor 8.x — `@capacitor/android` e `@capacitor/cli` 8.5.2, non 6.x
+  come originariamente previsto — con compileSdk/targetSdk 36 e Android
+  Gradle Plugin 8.13, che richiedono JDK 21)
 - Android SDK installato
 - Variabile d'ambiente `ANDROID_HOME` impostata al percorso dell'Android SDK
 
