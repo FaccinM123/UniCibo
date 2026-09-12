@@ -68,18 +68,25 @@ l'API in tempo reale.
 
 ```
 src/
-  firebase.js           init Firebase + esporta `db`
-  identity.js            identità leggera (nickname + id anonimo + gruppi
-                          a cui si è aderito, tutto in localStorage)
+  firebase.js            init Firebase + esporta `db` e `auth`
+  auth.js                 wrapper su Firebase Auth: sessione (authUser/
+                          authReady) + azioni (email/password, Google Sign-In,
+                          Apple Sign-In, reset password, cancellazione account)
+  identity.js             facciata identità: combina la sessione di
+                          `auth.js` col profilo Firestore di
+                          `services/userProfile.js`
+  services/userProfile.js profilo utente su Firestore (`users/{uid}`)
   router/index.js
-  styles/tokens.css      variabili CSS con la palette del design
-  utils/avatar.js         colore avatar derivato dal nickname/id (client-side)
+  styles/tokens.css       variabili CSS con la palette del design
+  utils/avatar.js          colore avatar derivato dal nickname/uid (client-side)
   views/
-    FeedView.vue          feed ricette brand + gruppo
-    RecipeDetailView.vue  dettaglio + reazioni + commenti
-    NewRecipeView.vue     form nuova ricetta
-    GroupsView.vue        lista gruppi + crea/unisciti a un gruppo
-    HowItWorksView.vue    pagina statica sui limiti dichiarati
+    AuthView.vue           login/registrazione (email+password, Google, Apple)
+    NicknameSetupView.vue  primo accesso: scelta nickname dopo il login
+    FeedView.vue           feed ricette brand + gruppo
+    RecipeDetailView.vue   dettaglio + reazioni + commenti
+    NewRecipeView.vue      form nuova ricetta
+    GroupsView.vue         lista gruppi + crea/unisciti a un gruppo
+    HowItWorksView.vue     pagina statica sui limiti dichiarati
   components/
     AppShell.vue          top bar + bottom nav (chrome dell'app)
     RecipeCard.vue
@@ -98,41 +105,62 @@ ufficiale — nickname casuale (vedi `FAKE_NICKNAMES` in
 Si mescolano nel feed come post di esempio, indistinguibili da un post di
 gruppo vero.
 
+- `users/{uid}` — profilo utente, `uid` = id Firebase Auth. `nickname`,
+  `bio`, `avatarPhoto`, `joinedGroupIds: string[]`, `createdAt: Timestamp`.
+  Creato al primo accesso (`NicknameSetupView.vue`); leggibile da chiunque
+  sia loggato (serve per mostrare autori/membri ovunque nell'app), ma
+  creabile/modificabile/cancellabile solo dal proprietario
+  (`request.auth.uid == uid` nelle `firestore.rules`).
+  - `users/{uid}/private/data` — dati privati dell'utente, leggibili e
+    scrivibili SOLO dal proprietario: `savedRecipeIds: string[]` (post
+    salvati/bookmark). Separata dal profilo perché Firestore non ha
+    sicurezza a livello di singolo campo dentro un documento.
 - `recipes/{id}` — `title`, `imageUrl`, `ingredients: string[]`,
   `steps: string[]` (descrizione e procedimento uniti in un solo campo),
   `source: 'brand' | 'group'`, `brandName: string | null`,
-  `groupId: string | null`, `authorNickname`, `authorLocalId`,
-  `reactionCounts: { cucinarlo, mangiarlo, nonMiPiace }` (contatore
-  denormalizzato), `createdAt: Timestamp`. Modificabile (titolo/immagine/
-  ingredienti/procedimento/gruppo) ed eliminabile dall'autore tramite
-  "Gestione post" — anche qui nessuna vera verifica di identità: le regole
-  permettono la modifica/eliminazione a chiunque conosca l'id del documento,
-  l'interfaccia mostra i pulsanti solo sui post dell'utente stesso.
-  - `recipes/{id}/reactions/{authorLocalId}` — una reazione per utente:
+  `groupId: string | null`, `authorNickname`, `authorId` (uid Firebase Auth
+  dell'autore), `reactionCounts: { cucinarlo, mangiarlo, nonMiPiace }`
+  (contatore denormalizzato), `createdAt: Timestamp`. Modificabile (titolo/
+  immagine/ingredienti/procedimento/gruppo) ed eliminabile dall'autore
+  tramite "Gestione post" — verificato dalle `firestore.rules`
+  (`resource.data.authorId == request.auth.uid`), non solo dall'interfaccia:
+  non è più possibile modificare o cancellare il post di un altro utente
+  conoscendone semplicemente l'id.
+  - `recipes/{id}/reactions/{authorId}` — una reazione per utente (id
+    documento = uid Firebase Auth dell'autore della reazione):
     `{ type: 'cucinarlo' | 'mangiarlo' | 'nonMiPiace', updatedAt: Timestamp }`
   - `recipes/{id}/comments/{commentId}` — `{ text, authorNickname,
-    authorLocalId, createdAt: Timestamp }`
-- `groups/{id}` — `name`, `inviteCode`, `createdBy` (funge anche da
-  amministratore: unico che può modificare nome/descrizione/foto ed espellere
-  membri, sempre senza una vera verifica di identità), `memberIds: string[]`,
-  `description: string`, `photoUrl: string | null`,
+    authorId, createdAt: Timestamp }`
+- `groups/{id}` — `name`, `inviteCode`, `createdBy` (uid dell'amministratore:
+  unico che può modificare nome/descrizione/foto ed espellere membri, ora
+  verificato dalle regole con `request.auth.uid == createdBy`),
+  `memberIds: string[]`, `description: string`, `photoUrl: string | null`,
   `memberNicknames: { [userId]: string }` (snapshot del nickname al momento
   dell'adesione, non aggiornato retroattivamente se il membro cambia
   nickname — stessa logica di `authorNickname` sulle ricette), `createdAt: Timestamp`
 
-I post salvati (bookmark) sono puramente locali (`localStorage`, come bio e
-foto profilo): non fanno parte dello schema Firestore perché sono una lista
-personale che nessun altro deve vedere.
-
 ## Limiti consapevoli (da spiegare all'orale)
 
-- **Nessun vero login**: identità leggera (nickname + id anonimo generato
-  con `crypto.randomUUID()`, salvati in localStorage insieme ai gruppi a cui
-  si è aderito). Chi ha accesso al dispositivo può impersonare l'utente.
-- **Codice invito gruppo non è sicurezza vera**: chiunque lo conosca può
-  unirsi. Le `firestore.rules` non possono verificare che l'id scritto nei
-  documenti corrisponda a chi sta davvero scrivendo, perché non c'è
-  `request.auth` (nessuna Firebase Auth).
+- **Login reale via Firebase Auth**: email/password, Google Sign-In e Apple
+  Sign-In (`src/auth.js`). L'identità dell'utente è il suo `uid` Firebase, non
+  più un id generato lato client: le `firestore.rules` verificano
+  `request.auth.uid` su ogni scrittura sensibile (profilo, ricette, reazioni,
+  commenti, adesione/uscita da un gruppo), quindi non è più possibile
+  scrivere, modificare o cancellare contenuti a nome di un altro utente
+  semplicemente conoscendo un id. Limite residuo: la registrazione via
+  email/password non verifica il possesso dell'indirizzo (nessuna
+  `sendEmailVerification`), quindi un account può essere creato con
+  un'email non realmente controllata da chi si registra.
+- **Codice invito gruppo non è sicurezza vera**: chiunque sia loggato può
+  leggere un gruppo — serve per validarne il codice invito prima di
+  entrare (`allow get` in `firestore.rules`) — quindi un utente autenticato
+  che interroga la collezione `groups` può unirsi a un gruppo qualsiasi senza
+  avere davvero il codice. Le regole non possono verificare che chi scrive
+  `memberIds` "conoscesse per davvero" il codice; una vera barriera
+  richiederebbe una Cloud Function (fuori dallo stack di questo progetto).
+  Mitigazione applicata (dentro le regole): le query di lista su `groups`
+  sono limitate a pochi risultati per richiesta, quindi non è possibile
+  scaricare l'intera collezione in una sola chiamata.
 - **Solo API Firestore viste a lezione** (`addDoc`/`getDoc`/`getDocs`/
   `setDoc`/`updateDoc`/`deleteDoc`/`query`/`where`/`orderBy`): niente
   `onSnapshot` (letture singole invece di ascolto in tempo reale) né
