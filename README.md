@@ -139,6 +139,74 @@ gruppo vero.
   dell'adesione, non aggiornato retroattivamente se il membro cambia
   nickname — stessa logica di `authorNickname` sulle ricette), `createdAt: Timestamp`
 
+## Build e distribuzione
+
+### Web (PWA)
+
+```bash
+npm run build
+npm run preview   # verifica locale su http://localhost:4173
+```
+
+Il build genera anche il manifest PWA e il service worker
+(`vite-plugin-pwa`): aprendo l'app in Chrome, dopo qualche secondo
+compare l'icona "Installa app" nella barra degli indirizzi.
+
+Deploy su Firebase Hosting (richiede essere loggati con
+`npx firebase-tools login` e avere accesso al progetto Firebase
+`sfamati`):
+
+```bash
+npx --yes firebase-tools deploy --only hosting
+```
+
+L'app pubblica è servita dal sito Hosting `unicibo` (progetto Firebase
+`sfamati`): l'URL canonico della privacy policy da inserire nella scheda
+Google Play Console è `https://unicibo.web.app/privacy.html`.
+
+### Android
+
+```bash
+npm run build:android   # build Vite + npx cap sync android
+cd android
+./gradlew assembleDebug   # APK di debug, installabile su un dispositivo/emulatore
+```
+
+**Nota sulla build Gradle in questo ambiente**: la build Gradle (`./gradlew assembleDebug`) non può completare in questo sandbox perché mancano le dipendenze native Android. L'errore riscontrato è:
+```
+The operation couldn't be completed. Unable to locate a Java Runtime.
+Please visit http://www.java.com for information on installing Java.
+```
+che richiede:
+- JDK 21 o successivo installato e disponibile in PATH (il progetto usa
+  Capacitor 8.x — `@capacitor/android` e `@capacitor/cli` 8.5.2, non 6.x
+  come originariamente previsto — con compileSdk/targetSdk 36 e Android
+  Gradle Plugin 8.13, che richiedono JDK 21)
+- Android SDK installato
+- Variabile d'ambiente `ANDROID_HOME` impostata al percorso dell'Android SDK
+
+Il progetto Android generato da Capacitor è corretto e pronto per la build (verificato da code review: applicationId, AndroidManifest.xml, risorse icone). Per completare la build in locale, installa le dipendenze native come sopra.
+
+Per pubblicare su Google Play serve una build di release firmata:
+
+1. Genera una keystore (una volta sola, **conservala con cura**: senza
+   non potrai più aggiornare l'app dopo la prima pubblicazione):
+   ```bash
+   keytool -genkey -v -keystore unicibo-release.keystore -alias unicibo -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. Configura la firma in `android/app/build.gradle` (sezione
+   `signingConfigs`) seguendo la
+   [guida ufficiale Capacitor](https://capacitorjs.com/docs/android/deploying-to-google-play).
+3. `cd android && ./gradlew bundleRelease` genera l'`.aab` da caricare
+   su Google Play Console.
+
+### iOS
+
+Non ancora pacchettizzato: richiede un Mac con Xcode e un account
+Apple Developer. Il progetto è già predisposto (Capacitor è
+cross-platform): quando saranno disponibili, basterà
+`npx cap add ios` seguito dalla build Xcode.
+
 ## Limiti consapevoli (da spiegare all'orale)
 
 - **Login reale via Firebase Auth**: email/password, Google Sign-In e Apple

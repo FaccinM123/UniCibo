@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=https://unicibo.web.app" />
+    <link rel="canonical" href="https://unicibo.web.app" />
+    <title>UniCibo si è trasferita</title>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => reg && reg.update())
+      }
+      location.replace('https://unicibo.web.app' + location.pathname + location.search)
+    </script>
+  </head>
+  <body>
+    <p>UniCibo si è trasferita su <a href="https://unicibo.web.app">unicibo.web.app</a>.</p>
+  </body>
+</html>

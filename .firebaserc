@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "sfamati"
-  }
+  },
+  "targets": {
+    "sfamati": {
+      "hosting": {
+        "unicibo": [
+          "unicibo"
+        ],
+        "sfamati": [
+          "sfamati"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

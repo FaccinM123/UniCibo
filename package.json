@@ -7,21 +7,29 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "build:android": "vite build && npx cap sync android",
     "import-brand-recipes": "node scripts/import-brand-recipes.mjs",
     "reset-test-data": "node scripts/reset-test-data.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@mdi/font": "^7.4.47",
     "firebase": "^10.13.0",
     "vue": "^3.4.31",
     "vue-router": "^4.4.0",
-    "vuetify": "^3.6.14",
-    "@mdi/font": "^7.4.47"
+    "vuetify": "^3.6.14"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2",
     "@vitejs/plugin-vue": "^5.0.5",
-    "vite": "^5.3.3",
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.3.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.4",
+    "vite": "^5.3.3",
+    "vite-plugin-pwa": "^1.3.0"
   }
 }
