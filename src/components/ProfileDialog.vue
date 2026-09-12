@@ -32,6 +32,15 @@
           <v-icon icon="mdi-chevron-right" size="20" color="var(--uc-text-muted)" />
         </RouterLink>
 
+        <a :href="FEEDBACK_FORM_URL" target="_blank" rel="noopener" class="uc-management-link mt-2">
+          <v-icon icon="mdi-message-alert-outline" size="20" color="var(--uc-primary-strong)" />
+          <div class="uc-management-link-text">
+            <div class="uc-management-link-title">Invia feedback</div>
+            <div class="uc-management-link-subtitle">Segnala un problema o un consiglio</div>
+          </div>
+          <v-icon icon="mdi-open-in-new" size="18" color="var(--uc-text-muted)" />
+        </a>
+
         <div class="uc-account-actions">
           <button type="button" class="uc-account-btn" @click="logout">
             <v-icon icon="mdi-logout" size="18" />
@@ -65,6 +74,8 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue'])
+
+const FEEDBACK_FORM_URL = 'https://forms.gle/3GoTKMMjqXZAMcaT9'
 
 const userId = getUserId()
 const nickname = ref(getNickname())
