@@ -57,17 +57,6 @@
       <div>
         <p class="uc-label">Destinazione</p>
         <v-select
-          v-if="editingId"
-          v-model="editDestination"
-          :items="myGroups"
-          item-title="name"
-          item-value="id"
-          variant="outlined"
-          density="comfortable"
-          hide-details
-        />
-        <v-select
-          v-else
           v-model="selectedGroupIds"
           :items="myGroups"
           item-title="name"
@@ -87,7 +76,7 @@
         size="large"
         class="uc-pill-btn"
         :loading="saving"
-        :disabled="!title.trim() || (editingId ? !editDestination : !selectedGroupIds.length)"
+        :disabled="!title.trim() || !selectedGroupIds.length"
       >
         {{ editingId ? 'Salva modifiche' : 'Pubblica' }}
       </v-btn>
@@ -100,7 +89,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc,
+  collection, addDoc, updateDoc, deleteDoc, doc, getDoc,
   query, where, getDocs, documentId, limit, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '@/firebase.js'
@@ -113,7 +102,6 @@ const route = useRoute()
 
 const myGroups = ref([])
 const selectedGroupIds = ref([])
-const editDestination = ref(null)
 const selectedTags = ref([])
 const publishError = ref('')
 const pendingBatchId = ref(null)
@@ -130,6 +118,16 @@ const editingId = ref(route.query.edit || null)
 // per capire se salvare è un semplice updateDoc sul posto o se la
 // destinazione è cambiata e serve spostare il documento (vedi submit()).
 const editingGroupId = ref(route.query.groupId || null)
+// Stato solo per la modifica: destinazioni attuali (prima di ogni modifica
+// dell'utente al v-select) e mappa gruppo -> id del documento esistente lì,
+// così submit() sa quali copie aggiornare/creare/eliminare. Vedi onMounted.
+const originalGroupIds = ref([])
+const copyIdByGroup = ref({})
+const existingBatchId = ref(null)
+// Un vecchio post "pubblico" (prima dell'introduzione dei gruppi come unica
+// destinazione) non vive in nessuna sotto-collezione di gruppo: va sempre
+// eliminato dalla collezione in cima una volta ricreato nei gruppi scelti.
+const hadLegacyTopLevelCopy = ref(false)
 
 function recipeDocRef(id, groupId) {
   return groupId ? doc(db, 'groups', groupId, 'recipes', id) : doc(db, 'recipes', id)
@@ -151,11 +149,37 @@ onMounted(async () => {
       imageUrl.value = r.imageUrl || ''
       ingredientsRaw.value = (r.ingredients || []).join('\n')
       stepsRaw.value = (r.steps || []).join('\n')
-      // Un vecchio post "pubblico" (visibility:'public', groupId:null) non ha
-      // più una destinazione valida da preselezionare: editDestination resta
-      // vuoto, l'autore deve scegliere un gruppo per poter salvare.
-      editDestination.value = r.visibility === 'public' ? null : r.groupId
       selectedTags.value = r.tags || []
+      existingBatchId.value = r.batchId || null
+
+      if (editingGroupId.value) {
+        copyIdByGroup.value[editingGroupId.value] = editingId.value
+      } else {
+        // Vecchio post "pubblico" (prima dei gruppi come unica destinazione):
+        // nessuna destinazione valida da portare avanti, l'autore deve
+        // sceglierne una o più; il vecchio documento va comunque eliminato
+        // dopo aver ricreato il post nei gruppi scelti (vedi submit()).
+        hadLegacyTopLevelCopy.value = true
+      }
+
+      if (r.batchId) {
+        // Post multi-gruppo: cerca le copie gemelle nei gruppi a cui
+        // appartieni, per far partire il multi-select con TUTTE le
+        // destinazioni attuali già spuntate, non solo quella da cui sei
+        // entrato in modifica.
+        const groupIds = getJoinedGroupIds().slice(0, 10)
+        const snaps = await Promise.all(
+          groupIds.map((gid) =>
+            getDocs(query(collection(db, 'groups', gid, 'recipes'), where('batchId', '==', r.batchId)))
+          )
+        )
+        snaps.forEach((snap, i) => {
+          if (!snap.empty) copyIdByGroup.value[groupIds[i]] = snap.docs[0].id
+        })
+      }
+
+      selectedGroupIds.value = Object.keys(copyIdByGroup.value)
+      originalGroupIds.value = [...selectedGroupIds.value]
     }
     return
   }
@@ -182,7 +206,7 @@ async function onFileChange(e) {
 
 async function submit() {
   if (!title.value.trim()) return
-  if (editingId.value ? !editDestination.value : !selectedGroupIds.value.length) return
+  if (!selectedGroupIds.value.length) return
   saving.value = true
   publishError.value = ''
   try {
@@ -195,36 +219,83 @@ async function submit() {
     }
 
     if (editingId.value) {
-      const newGroupId = editDestination.value
-      const samePlace = newGroupId === editingGroupId.value
-      if (samePlace) {
-        await updateDoc(recipeDocRef(editingId.value, editingGroupId.value), fields)
-        router.push(`/gruppi/${newGroupId}/ricetta/${editingId.value}`)
+      const newGroupIds = selectedGroupIds.value
+      const oldGroupIds = originalGroupIds.value
+      const toKeep = newGroupIds.filter((gid) => oldGroupIds.includes(gid))
+      const toAdd = newGroupIds.filter((gid) => !oldGroupIds.includes(gid))
+      const toRemove = oldGroupIds.filter((gid) => !newGroupIds.includes(gid))
+
+      if (toRemove.length) {
+        const names = toRemove.map((gid) => myGroups.value.find((g) => g.id === gid)?.name || gid).join(', ')
+        const proceed = confirm(
+          `Rimuovendo il post da ${names} perderai le reazioni e i commenti ricevuti lì, in modo permanente. Continuare?`
+        )
+        if (!proceed) {
+          saving.value = false
+          return
+        }
+      }
+
+      // Un post che passa da un solo gruppo a più gruppi ottiene un batchId
+      // nuovo (se non ne aveva già uno); uno che si riduce a un solo gruppo
+      // rimasto lo lascia com'è — non causa più il raggruppamento nel feed/
+      // gestione-post (vedi src/utils/mergeBatch.js), quindi è innocuo.
+      // Tenuto in existingBatchId.value (non ricalcolato da zero) così un
+      // eventuale retry dopo un fallimento parziale riusa lo stesso valore.
+      if (newGroupIds.length > 1 && !existingBatchId.value) {
+        existingBatchId.value = crypto.randomUUID()
+      } else if (newGroupIds.length <= 1) {
+        existingBatchId.value = null
+      }
+      const batchId = existingBatchId.value
+
+      // allSettled, non allSettled/all: un fallimento su un gruppo non deve
+      // bloccare gli altri, e soprattutto un retry successivo non deve
+      // ripetere un'aggiunta già riuscita (duplicherebbe il post in quel
+      // gruppo) né una rimozione già riuscita. Per questo copyIdByGroup e
+      // originalGroupIds vengono aggiornati in base a cosa è VERAMENTE
+      // riuscito, non a cosa era stato richiesto.
+      const keepResults = await Promise.allSettled(
+        toKeep.map((gid) => updateDoc(recipeDocRef(copyIdByGroup.value[gid], gid), { ...fields, batchId }))
+      )
+      const addResults = await Promise.allSettled(
+        toAdd.map((gid) =>
+          addDoc(collection(db, 'groups', gid, 'recipes'), {
+            ...fields,
+            source: 'group',
+            brandName: null,
+            visibility: 'group',
+            groupId: gid,
+            authorNickname: getNickname() || 'Anonimo',
+            authorId: getUserId(),
+            reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
+            batchId,
+            createdAt: serverTimestamp()
+          })
+        )
+      )
+      const removeResults = await Promise.allSettled(
+        toRemove.map((gid) => deleteDoc(recipeDocRef(copyIdByGroup.value[gid], gid)))
+      )
+
+      addResults.forEach((r, i) => {
+        if (r.status === 'fulfilled') copyIdByGroup.value[toAdd[i]] = r.value.id
+      })
+      removeResults.forEach((r, i) => {
+        if (r.status === 'fulfilled') delete copyIdByGroup.value[toRemove[i]]
+      })
+      originalGroupIds.value = Object.keys(copyIdByGroup.value)
+
+      const anyFailed = [...keepResults, ...addResults, ...removeResults].some((r) => r.status === 'rejected')
+      if (anyFailed) {
+        console.error('Errore nel salvare le destinazioni:', keepResults, addResults, removeResults)
+        publishError.value = 'Alcune modifiche non sono state salvate. Riprova.'
       } else {
-        // Cambio di gruppo: il documento va ricreato nel posto giusto.
-        // Reazioni/commenti non vengono portati con sé (si riparte da
-        // zero) — semplificazione accettata: spostare anche le sotto-
-        // collezioni richiederebbe una Cloud Function, fuori dallo stack
-        // di questo progetto.
-        const oldSnap = await getDoc(recipeDocRef(editingId.value, editingGroupId.value))
-        const old = oldSnap.data() || {}
-        const newRef = doc(collection(db, 'groups', newGroupId, 'recipes'))
-        await setDoc(newRef, {
-          ...fields,
-          source: 'group',
-          brandName: null,
-          visibility: 'group',
-          groupId: newGroupId,
-          authorNickname: old.authorNickname || getNickname() || 'Anonimo',
-          authorId: old.authorId || getUserId(),
-          reactionCounts: { cucinarlo: 0, mangiarlo: 0, nonMiPiace: 0 },
-          // Se il post spostato faceva parte di una pubblicazione multi-gruppo,
-          // resta collegato alle altre copie (vedi src/utils/mergeBatch.js).
-          batchId: old.batchId || null,
-          createdAt: serverTimestamp()
-        })
-        await deleteDoc(recipeDocRef(editingId.value, editingGroupId.value))
-        router.push(`/gruppi/${newGroupId}/ricetta/${newRef.id}`)
+        if (hadLegacyTopLevelCopy.value) {
+          await deleteDoc(recipeDocRef(editingId.value, null))
+          hadLegacyTopLevelCopy.value = false
+        }
+        router.push('/gestione-post')
       }
     } else {
       // Copie indipendenti, una per gruppo selezionato: stesso schema di

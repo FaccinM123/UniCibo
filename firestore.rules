@@ -232,15 +232,19 @@ service cloud.firestore {
         // authorId/authorNickname/createdAt restano immutabili — spostare
         // un post in un gruppo diverso non è più un update, ma elimina +
         // ricrea nel posto giusto (gestito dal client in NewRecipeView.vue).
+        // batchId è incluso qui perché modificare le destinazioni di un post
+        // multi-gruppo può collegare/scollegare una copia rimasta al batch
+        // (vedi NewRecipeView.vue submit(), ramo di modifica).
         allow update: if
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts'])
             && isMember()
             && reactionCountsValid(resource.data.reactionCounts, request.resource.data.reactionCounts))
           ||
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps', 'tags'])
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps', 'tags', 'batchId'])
             && isSignedIn() && resource.data.authorId == request.auth.uid
             && request.resource.data.tags is list
-            && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine']));
+            && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
+            && (request.resource.data.batchId == null || request.resource.data.batchId is string));
 
         allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
 
