@@ -1,5 +1,6 @@
 import sharp from 'sharp'
-import { readFileSync, mkdirSync } from 'fs'
+import { readFileSync, mkdirSync, writeFileSync } from 'fs'
+import pngToIco from 'png-to-ico'
 
 mkdirSync('public/icons', { recursive: true })
 
@@ -33,4 +34,13 @@ await exportPng(simple, 48, 'public/icons/favicon-48.png')
 await exportPng(simple, 32, 'public/icons/favicon-32.png')
 await exportPng(simple, 16, 'public/icons/favicon-16.png')
 
-console.log('Fatto. Nota: public/favicon.ico va generato a parte (vedi Step 5).')
+// Generate favicon.ico with all three resolutions using png-to-ico API
+const icoBuffer = await pngToIco([
+  readFileSync('public/icons/favicon-16.png'),
+  readFileSync('public/icons/favicon-32.png'),
+  readFileSync('public/icons/favicon-48.png')
+])
+writeFileSync('public/favicon.ico', icoBuffer)
+console.log('OK public/favicon.ico')
+
+console.log('Fatto.')
