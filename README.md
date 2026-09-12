@@ -153,7 +153,12 @@ cd android
 ./gradlew assembleDebug   # APK di debug, installabile su un dispositivo/emulatore
 ```
 
-**Nota sulla build Gradle in questo ambiente**: la build Gradle (`./gradlew assembleDebug`) non può completare in questo sandbox perché mancano le dipendenze native Android. L'errore riscontrato è `Unable to locate a Java Runtime`, che richiede:
+**Nota sulla build Gradle in questo ambiente**: la build Gradle (`./gradlew assembleDebug`) non può completare in questo sandbox perché mancano le dipendenze native Android. L'errore riscontrato è:
+```
+The operation couldn't be completed. Unable to locate a Java Runtime.
+Please visit http://www.java.com for information on installing Java.
+```
+che richiede:
 - JDK 17 o successivo installato e disponibile in PATH
 - Android SDK installato
 - Variabile d'ambiente `ANDROID_HOME` impostata al percorso dell'Android SDK
