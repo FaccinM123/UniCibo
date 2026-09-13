@@ -6,12 +6,12 @@
       type="button"
       class="uc-reaction-btn"
       :class="{ 'uc-reaction-btn--active': myReaction === opt.type }"
-      :style="myReaction === opt.type ? { background: opt.containerColor, color: opt.strongColor } : null"
+      :style="myReaction === opt.type ? { '--uc-reaction-bg': opt.containerColor, '--uc-reaction-fg': opt.strongColor } : null"
       :disabled="loading === opt.type"
       @click="toggleReaction(opt.type)"
     >
       <v-icon :icon="myReaction === opt.type ? opt.iconActive : opt.icon" size="16" />
-      <span>{{ opt.label }}</span>
+      <span v-if="!opt.hideLabel">{{ opt.label }}</span>
       <span class="uc-reaction-count">{{ counts[opt.type] || 0 }}</span>
     </button>
   </div>
@@ -55,17 +55,17 @@ function reactionRef(uid) {
 
 const options = [
   {
-    type: 'cucinarlo', label: 'Voglio cucinarlo',
+    type: 'cucinarlo', label: 'Lo cucino',
     icon: 'mdi-pot-steam-outline', iconActive: 'mdi-pot-steam',
     containerColor: 'var(--uc-primary-container)', strongColor: 'var(--uc-primary-strong)'
   },
   {
-    type: 'mangiarlo', label: 'Voglio mangiarlo',
+    type: 'mangiarlo', label: 'Lo mangio',
     icon: 'mdi-food-outline', iconActive: 'mdi-food',
     containerColor: 'var(--uc-secondary-container)', strongColor: 'var(--uc-secondary)'
   },
   {
-    type: 'nonMiPiace', label: 'Non mi piace',
+    type: 'nonMiPiace', label: 'Non mi piace', hideLabel: true,
     icon: 'mdi-thumb-down-outline', iconActive: 'mdi-thumb-down',
     containerColor: 'var(--uc-border)', strongColor: 'var(--uc-text)'
   }
@@ -214,7 +214,23 @@ async function toggleReaction(type) {
   cursor: default;
 }
 
+.uc-reaction-btn--active {
+  background: var(--uc-reaction-bg);
+  color: var(--uc-reaction-fg);
+}
+
 .uc-reaction-count {
   font-variant-numeric: tabular-nums;
+}
+
+/* In dark mode una pillola attiva a sfondo tenue (container) si legge male:
+   passiamo a sfondo pieno con un unico accento arancio (non il colore per
+   tipo di reazione) e testo bianco — stesso trattamento visto nelle
+   schermate 2.0 dark. */
+@media (prefers-color-scheme: dark) {
+  .uc-reaction-btn--active {
+    background: var(--uc-primary);
+    color: #fff;
+  }
 }
 </style>

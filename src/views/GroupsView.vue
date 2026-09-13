@@ -266,7 +266,7 @@ async function joinGroup() {
 }
 
 .uc-tab--active {
-  color: var(--uc-primary-strong);
+  color: var(--uc-primary);
   border-bottom-color: var(--uc-primary);
 }
 

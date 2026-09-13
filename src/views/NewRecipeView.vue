@@ -41,38 +41,41 @@
 
       <div>
         <p class="uc-label">Tag</p>
-        <v-chip-group v-model="selectedTags" multiple column>
-          <v-chip
+        <div class="uc-chip-row">
+          <button
             v-for="opt in TAG_OPTIONS"
             :key="opt.id"
-            :value="opt.id"
-            variant="outlined"
-            filter
+            type="button"
+            class="uc-tag-chip uc-tag-chip--toggle"
+            :class="{ 'uc-tag-chip--selected': selectedTags.includes(opt.id) }"
+            :style="{ '--uc-tag-color': opt.color }"
+            @click="toggleTag(opt.id)"
           >
             {{ opt.label }}
-          </v-chip>
-        </v-chip-group>
+          </button>
+        </div>
       </div>
 
       <div>
         <p class="uc-label">Destinazione</p>
-        <v-select
-          v-model="selectedGroupIds"
-          :items="myGroups"
-          item-title="name"
-          item-value="id"
-          multiple
-          chips
-          variant="outlined"
-          density="comfortable"
-          hide-details
-        />
+        <div class="uc-chip-row">
+          <button
+            v-for="g in myGroups"
+            :key="g.id"
+            type="button"
+            class="uc-group-chip"
+            :class="{ 'uc-group-chip--selected': selectedGroupIds.includes(g.id) }"
+            @click="toggleGroup(g.id)"
+          >
+            {{ g.name }}
+          </button>
+        </div>
       </div>
 
       <v-btn
         type="submit"
         variant="flat"
-        color="secondary"
+        color="primary"
         size="large"
         class="uc-pill-btn"
         :loading="saving"
@@ -128,6 +131,18 @@ const existingBatchId = ref(null)
 // destinazione) non vive in nessuna sotto-collezione di gruppo: va sempre
 // eliminato dalla collezione in cima una volta ricreato nei gruppi scelti.
 const hadLegacyTopLevelCopy = ref(false)
+
+function toggleTag(id) {
+  const i = selectedTags.value.indexOf(id)
+  if (i === -1) selectedTags.value.push(id)
+  else selectedTags.value.splice(i, 1)
+}
+
+function toggleGroup(id) {
+  const i = selectedGroupIds.value.indexOf(id)
+  if (i === -1) selectedGroupIds.value.push(id)
+  else selectedGroupIds.value.splice(i, 1)
+}
 
 function recipeDocRef(id, groupId) {
   return groupId ? doc(db, 'groups', groupId, 'recipes', id) : doc(db, 'recipes', id)
@@ -437,6 +452,54 @@ async function submit() {
   text-transform: none;
   font-weight: 700;
   margin-top: 4px;
+}
+
+.uc-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uc-tag-chip {
+  border-radius: var(--uc-radius-pill);
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--uc-tag-color);
+  color: var(--uc-tag-color);
+  background: var(--uc-surface);
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.15);
+}
+
+.uc-tag-chip--toggle {
+  cursor: pointer;
+  font-family: inherit;
+  border-color: var(--uc-border);
+  color: var(--uc-text-muted);
+  box-shadow: none;
+}
+
+.uc-tag-chip--toggle.uc-tag-chip--selected {
+  border-color: var(--uc-tag-color);
+  color: var(--uc-tag-color);
+}
+
+.uc-group-chip {
+  border-radius: var(--uc-radius-pill);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--uc-border);
+  background: var(--uc-surface);
+  color: var(--uc-text);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.uc-group-chip--selected {
+  border-color: var(--uc-primary);
+  background: var(--uc-primary);
+  color: #fff;
 }
 
 .uc-error {

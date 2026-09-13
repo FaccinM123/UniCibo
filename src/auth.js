@@ -6,7 +6,8 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   GoogleAuthProvider, OAuthProvider, signInWithPopup,
-  signOut, sendPasswordResetEmail, deleteUser
+  signOut, sendPasswordResetEmail, deleteUser,
+  setPersistence, browserLocalPersistence, browserSessionPersistence
 } from 'firebase/auth'
 import { auth } from '@/firebase.js'
 
@@ -21,22 +22,33 @@ onAuthStateChanged(auth, (user) => {
   authReady.value = true
 })
 
-export async function signUpWithEmail(email, password) {
+// "Resta connesso": true salva la sessione in locale (sopravvive alla
+// chiusura del browser), false la tiene solo per la scheda corrente
+// (sparisce chiudendo il browser) — utile su un computer condiviso.
+async function applyPersistence(rememberMe) {
+  await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence)
+}
+
+export async function signUpWithEmail(email, password, rememberMe = true) {
+  await applyPersistence(rememberMe)
   const cred = await createUserWithEmailAndPassword(auth, email, password)
   return cred.user
 }
 
-export async function signInWithEmail(email, password) {
+export async function signInWithEmail(email, password, rememberMe = true) {
+  await applyPersistence(rememberMe)
   const cred = await signInWithEmailAndPassword(auth, email, password)
   return cred.user
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(rememberMe = true) {
+  await applyPersistence(rememberMe)
   const cred = await signInWithPopup(auth, new GoogleAuthProvider())
   return cred.user
 }
 
-export async function signInWithApple() {
+export async function signInWithApple(rememberMe = true) {
+  await applyPersistence(rememberMe)
   const cred = await signInWithPopup(auth, new OAuthProvider('apple.com'))
   return cred.user
 }

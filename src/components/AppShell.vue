@@ -129,6 +129,15 @@ const newRecipeLink = computed(() => {
   background: var(--uc-border);
 }
 
+/* In dark mode le icone della top bar passano al colore di marca invece del
+   testo standard, per restare leggibili sullo sfondo scuro — coerente con
+   le schermate 2.0 dark. */
+@media (prefers-color-scheme: dark) {
+  .uc-icon-btn {
+    color: var(--uc-primary);
+  }
+}
+
 .uc-logo {
   justify-self: center;
   grid-column: 2;
@@ -162,7 +171,7 @@ const newRecipeLink = computed(() => {
 
 .uc-bottom-nav {
   display: flex;
-  background: #ffffff;
+  background: var(--uc-surface);
   flex-shrink: 0;
   margin: 0 14px 14px;
   padding: 10px 4px;
@@ -190,6 +199,6 @@ const newRecipeLink = computed(() => {
 }
 
 .uc-nav-item--active {
-  color: var(--uc-primary-strong);
+  color: var(--uc-primary);
 }
 </style>

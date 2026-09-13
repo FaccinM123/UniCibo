@@ -185,9 +185,9 @@ async function removeMember(memberId) {
 
 .uc-details-header {
   text-align: center;
-  padding: 16px 4px 20px;
-  border-bottom: 1px solid var(--uc-border);
-  margin-bottom: 8px;
+  margin: -8px -16px 0;
+  padding: 24px 16px 20px;
+  background: var(--uc-surface);
 }
 
 .uc-hidden-input {
@@ -264,7 +264,7 @@ async function removeMember(memberId) {
   align-items: center;
   gap: 4px;
   margin-top: 12px;
-  color: var(--uc-primary-strong);
+  color: var(--uc-primary);
   font-size: 13px;
   font-weight: 600;
   background: transparent;
@@ -287,7 +287,9 @@ async function removeMember(memberId) {
 
 .uc-actions-row {
   display: flex;
-  padding: 12px 0;
+  margin: 0 -16px;
+  padding: 12px 16px;
+  background: var(--uc-surface);
 }
 
 .uc-action-btn {
@@ -376,6 +378,15 @@ async function removeMember(memberId) {
   padding: 4px 9px;
   border-radius: 999px;
   flex-shrink: 0;
+}
+
+/* Uno sfondo tenue si legge male in dark mode: badge a tinta piena con
+   testo bianco, come "Crea gruppo" e le pillole di reazione attive. */
+@media (prefers-color-scheme: dark) {
+  .uc-admin-badge {
+    color: #fff;
+    background: var(--uc-primary);
+  }
 }
 
 .uc-remove-btn {

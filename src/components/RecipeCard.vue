@@ -25,27 +25,32 @@
       <h3 class="uc-card-title">{{ recipe.title }}</h3>
       <div class="uc-card-image" :class="{ 'uc-card-image--placeholder': !recipe.imageUrl }">
         <img v-if="recipe.imageUrl" :src="recipe.imageUrl" :alt="recipe.title" loading="lazy" />
+        <button
+          type="button"
+          class="uc-save-toggle"
+          :class="{ 'uc-save-toggle--active': saved }"
+          aria-label="Salva ricetta"
+          @click.prevent.stop="toggleSave"
+        >
+          <v-icon :icon="saved ? 'mdi-bookmark' : 'mdi-bookmark-outline'" size="18" />
+        </button>
       </div>
     </RouterLink>
 
-    <div v-if="tagLabels.length" class="uc-card-tags">
-      <v-chip v-for="label in tagLabels" :key="label" size="x-small" variant="tonal" color="primary">
-        {{ label }}
-      </v-chip>
+    <div v-if="tagItems.length" class="uc-card-tags">
+      <span
+        v-for="tag in tagItems"
+        :key="tag.id"
+        class="uc-tag-chip"
+        :style="{ '--uc-tag-color': tag.color }"
+      >
+        {{ tag.label }}
+      </span>
     </div>
 
     <div class="uc-card-actions">
       <ReactionBar :recipe-id="recipe.id" :group-id="recipe.groupId" :extra-copies="recipe.extraCopies || []" />
       <span class="uc-card-spacer" />
-      <button
-        type="button"
-        class="uc-save-toggle"
-        :class="{ 'uc-save-toggle--active': saved }"
-        aria-label="Salva ricetta"
-        @click="toggleSave"
-      >
-        <v-icon :icon="saved ? 'mdi-bookmark' : 'mdi-bookmark-outline'" size="18" />
-      </button>
       <button type="button" class="uc-comment-toggle" @click="expanded = !expanded">
         <v-icon icon="mdi-comment-outline" size="16" />
         <span>Commenti</span>
@@ -93,8 +98,8 @@ const originLabel = computed(() => {
   return props.recipe.source === 'group' ? props.recipe.groupName : null
 })
 
-const tagLabels = computed(() => {
-  return (props.recipe.tags || []).map((id) => TAG_OPTIONS.find((t) => t.id === id)?.label || id)
+const tagItems = computed(() => {
+  return (props.recipe.tags || []).map((id) => TAG_OPTIONS.find((t) => t.id === id) || { id, label: id, color: '#8C8078' })
 })
 
 // La foto profilo resta solo su questo dispositivo (vedi identity.js): la
@@ -176,9 +181,10 @@ const formattedDate = computed(() => {
 }
 
 .uc-card-image {
+  position: relative;
   height: 170px;
   margin: 0 14px 10px;
-  border-radius: 10px;
+  border-radius: 16px;
   overflow: hidden;
 }
 
@@ -209,6 +215,9 @@ const formattedDate = computed(() => {
 }
 
 .uc-save-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -219,11 +228,12 @@ const formattedDate = computed(() => {
   color: var(--uc-text-muted);
   background: transparent;
   border: none;
+  -webkit-text-stroke: 0.5px #fff;
 }
 
 .uc-save-toggle--active {
-  color: var(--uc-primary-strong);
-  background: var(--uc-primary-container);
+  color: var(--uc-primary);
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.25));
 }
 
 .uc-comment-toggle {
@@ -251,5 +261,16 @@ const formattedDate = computed(() => {
   flex-wrap: wrap;
   gap: 4px;
   padding: 0 14px 8px;
+}
+
+.uc-tag-chip {
+  border-radius: var(--uc-radius-pill);
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--uc-tag-color);
+  color: var(--uc-tag-color);
+  background: var(--uc-surface);
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.15);
 }
 </style>

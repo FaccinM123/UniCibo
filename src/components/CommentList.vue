@@ -134,7 +134,7 @@ async function postComment() {
   padding: 8px 14px;
   font-size: 13px;
   font-family: inherit;
-  background: #ffffff;
+  background: var(--uc-surface);
   color: var(--uc-text);
 }
 

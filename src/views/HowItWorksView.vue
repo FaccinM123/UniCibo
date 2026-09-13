@@ -13,17 +13,18 @@
       Nel feed trovi due tipi di ricette: quelle <strong>consigliate</strong>
       (importate una volta sola da un archivio esterno di ricette) e quelle
       <strong>pubblicate nei tuoi gruppi</strong>. Ogni ricetta si può
-      reagire con "Voglio cucinarlo", "Voglio mangiarlo" o "Non mi piace" —
-      una sola reazione alla volta — e commentare.
+      reagire con "Lo cucino", "Lo mangio" o "Non mi piace" — una sola
+      reazione alla volta — e commentare.
     </p>
 
-    <h2 class="uc-label">Identità leggera (nessun login)</h2>
+    <h2 class="uc-label">Accesso con account vero</h2>
     <p class="uc-body">
-      Non esiste un vero account: scegli solo un nickname, salvato sul tuo
-      dispositivo insieme a un identificativo anonimo. Questo rende l'app
-      immediata da usare, ma è un <strong>limite consapevole</strong>: chi ha
-      accesso al tuo dispositivo può pubblicare a tuo nome, e non c'è modo di
-      recuperare l'identità cambiando dispositivo.
+      L'accesso è reale, tramite Firebase Auth: email e password, Google o
+      Apple. Il tuo nickname e i tuoi post restano legati al tuo account, non
+      al dispositivo — puoi accedere da un telefono nuovo e ritrovare tutto.
+      Resta un <strong>limite consapevole</strong>: la registrazione via
+      email non verifica che l'indirizzo sia davvero tuo, quindi un account
+      può essere creato con un'email non controllata da chi si registra.
     </p>
 
     <h2 class="uc-label">Gruppi e codice invito</h2>

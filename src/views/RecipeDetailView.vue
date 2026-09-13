@@ -2,6 +2,15 @@
   <div v-if="recipe" class="uc-detail">
     <div class="uc-detail-hero" :class="{ 'uc-detail-hero--placeholder': !recipe.imageUrl }">
       <img v-if="recipe.imageUrl" :src="recipe.imageUrl" :alt="recipe.title" />
+      <button
+        type="button"
+        class="uc-save-toggle"
+        :class="{ 'uc-save-toggle--active': saved }"
+        aria-label="Salva ricetta"
+        @click="toggleSave"
+      >
+        <v-icon :icon="saved ? 'mdi-bookmark' : 'mdi-bookmark-outline'" size="19" />
+      </button>
     </div>
 
     <h1 class="uc-detail-title">{{ recipe.title }}</h1>
@@ -22,23 +31,19 @@
       <span class="uc-detail-meta">· {{ formattedDate }}</span>
     </div>
 
-    <div v-if="tagLabels.length" class="uc-detail-tags">
-      <v-chip v-for="label in tagLabels" :key="label" size="small" variant="tonal" color="primary">
-        {{ label }}
-      </v-chip>
+    <div v-if="tagItems.length" class="uc-detail-tags">
+      <span
+        v-for="tag in tagItems"
+        :key="tag.id"
+        class="uc-tag-chip"
+        :style="{ '--uc-tag-color': tag.color }"
+      >
+        {{ tag.label }}
+      </span>
     </div>
 
     <div class="uc-detail-reactions">
       <ReactionBar :recipe-id="id" :group-id="groupId" :live="true" />
-      <button
-        type="button"
-        class="uc-save-toggle"
-        :class="{ 'uc-save-toggle--active': saved }"
-        aria-label="Salva ricetta"
-        @click="toggleSave"
-      >
-        <v-icon :icon="saved ? 'mdi-bookmark' : 'mdi-bookmark-outline'" size="19" />
-      </button>
     </div>
 
     <section v-if="recipe.ingredients?.length" class="uc-detail-section">
@@ -107,8 +112,8 @@ const formattedDate = computed(() => {
   return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
 })
 
-const tagLabels = computed(() => {
-  return (recipe.value?.tags || []).map((id) => TAG_OPTIONS.find((t) => t.id === id)?.label || id)
+const tagItems = computed(() => {
+  return (recipe.value?.tags || []).map((id) => TAG_OPTIONS.find((t) => t.id === id) || { id, label: id, color: '#8C8078' })
 })
 </script>
 
@@ -118,6 +123,7 @@ const tagLabels = computed(() => {
 }
 
 .uc-detail-hero {
+  position: relative;
   height: 220px;
   margin: 0 0 4px;
   overflow: hidden;
@@ -188,6 +194,9 @@ const tagLabels = computed(() => {
 }
 
 .uc-save-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,11 +208,12 @@ const tagLabels = computed(() => {
   background: transparent;
   border: none;
   flex-shrink: 0;
+  -webkit-text-stroke: 0.5px #fff;
 }
 
 .uc-save-toggle--active {
-  color: var(--uc-primary-strong);
-  background: var(--uc-primary-container);
+  color: var(--uc-primary);
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.25));
 }
 
 .uc-detail-section {
@@ -238,5 +248,16 @@ const tagLabels = computed(() => {
   flex-wrap: wrap;
   gap: 6px;
   padding: 0 16px 8px;
+}
+
+.uc-tag-chip {
+  border-radius: var(--uc-radius-pill);
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--uc-tag-color);
+  color: var(--uc-tag-color);
+  background: var(--uc-surface);
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.15);
 }
 </style>

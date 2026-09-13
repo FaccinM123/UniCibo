@@ -15,7 +15,10 @@
         <form class="uc-auth-form" @submit.prevent="submitEmail">
           <v-text-field v-model="email" type="email" label="Email" variant="outlined" density="comfortable" hide-details class="mb-3" />
           <v-text-field v-model="password" type="password" label="Password" variant="outlined" density="comfortable" hide-details class="mb-1" />
-          <button v-if="mode === 'signin'" type="button" class="uc-forgot-link" @click="sendReset">Password dimenticata?</button>
+          <div class="uc-remember-row">
+            <v-checkbox v-model="rememberMe" color="primary" density="compact" hide-details label="Resta connesso" />
+            <button v-if="mode === 'signin'" type="button" class="uc-forgot-link" @click="sendReset">Password dimenticata?</button>
+          </div>
 
           <p v-if="errorMessage" class="uc-error">{{ errorMessage }}</p>
           <p v-if="infoMessage" class="uc-info">{{ infoMessage }}</p>
@@ -54,6 +57,7 @@ import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple, re
 const mode = ref('signin')
 const email = ref('')
 const password = ref('')
+const rememberMe = ref(true)
 const loading = ref(false)
 const errorMessage = ref('')
 const infoMessage = ref('')
@@ -76,9 +80,9 @@ async function submitEmail() {
   loading.value = 'email'
   try {
     if (mode.value === 'signin') {
-      await signInWithEmail(email.value.trim(), password.value)
+      await signInWithEmail(email.value.trim(), password.value, rememberMe.value)
     } else {
-      await signUpWithEmail(email.value.trim(), password.value)
+      await signUpWithEmail(email.value.trim(), password.value, rememberMe.value)
     }
   } catch (err) {
     console.error('Errore di autenticazione:', err)
@@ -106,7 +110,7 @@ async function withGoogle() {
   errorMessage.value = ''
   loading.value = 'google'
   try {
-    await signInWithGoogle()
+    await signInWithGoogle(rememberMe.value)
   } catch (err) {
     console.error('Errore Google Sign-In:', err)
     errorMessage.value = 'Errore con l\'accesso Google, riprova.'
@@ -119,7 +123,7 @@ async function withApple() {
   errorMessage.value = ''
   loading.value = 'apple'
   try {
-    await signInWithApple()
+    await signInWithApple(rememberMe.value)
   } catch (err) {
     console.error('Errore Apple Sign-In:', err)
     errorMessage.value = 'Errore con l\'accesso Apple, riprova.'
@@ -174,10 +178,24 @@ async function withApple() {
   cursor: pointer; color: var(--uc-text-muted); background: transparent; border: none;
   border-bottom: 2.5px solid transparent; font-family: inherit;
 }
-.uc-tab--active { color: var(--uc-primary-strong); border-bottom-color: var(--uc-primary); }
+.uc-tab--active { color: var(--uc-primary); border-bottom-color: var(--uc-primary); }
+.uc-remember-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.uc-remember-row :deep(.v-selection-control) {
+  min-height: auto;
+}
+.uc-remember-row :deep(.v-label) {
+  font-size: 13px;
+  color: var(--uc-text);
+  opacity: 1;
+}
 .uc-forgot-link {
-  display: block; margin: 6px 0 0; font-size: 12px; color: var(--uc-primary-strong);
-  background: transparent; border: none; cursor: pointer; font-family: inherit; text-align: right; width: 100%;
+  margin: 0; font-size: 12px; color: var(--uc-primary);
+  background: transparent; border: none; cursor: pointer; font-family: inherit;
 }
 .uc-error { color: #b3261e; font-size: 12.5px; margin: 10px 0 0; }
 .uc-info { color: var(--uc-secondary); font-size: 12.5px; margin: 10px 0 0; }

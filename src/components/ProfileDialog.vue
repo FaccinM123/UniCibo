@@ -24,7 +24,7 @@
         <v-textarea v-model="bio" placeholder="Racconta qualcosa di te..." variant="outlined" rows="3" hide-details class="mb-4" />
 
         <RouterLink to="/gestione-post" class="uc-management-link" @click="close">
-          <v-icon icon="mdi-view-grid-outline" size="20" color="var(--uc-primary-strong)" />
+          <v-icon icon="mdi-view-grid-outline" size="20" color="var(--uc-primary)" />
           <div class="uc-management-link-text">
             <div class="uc-management-link-title">Gestione post</div>
             <div class="uc-management-link-subtitle">I tuoi post e i post salvati</div>
@@ -33,7 +33,7 @@
         </RouterLink>
 
         <a :href="FEEDBACK_FORM_URL" target="_blank" rel="noopener" class="uc-management-link mt-2">
-          <v-icon icon="mdi-message-alert-outline" size="20" color="var(--uc-primary-strong)" />
+          <v-icon icon="mdi-message-alert-outline" size="20" color="var(--uc-primary)" />
           <div class="uc-management-link-text">
             <div class="uc-management-link-title">Invia feedback</div>
             <div class="uc-management-link-subtitle">Segnala un problema o un consiglio</div>

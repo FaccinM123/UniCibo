@@ -182,7 +182,7 @@ async function deletePost(p) {
 }
 
 .uc-tab--active {
-  color: var(--uc-primary-strong);
+  color: var(--uc-primary);
   border-bottom-color: var(--uc-primary);
 }
 
@@ -249,7 +249,7 @@ async function deletePost(p) {
 .uc-post-batch {
   font-size: 10.5px;
   font-weight: 600;
-  color: var(--uc-primary-strong);
+  color: var(--uc-primary);
   margin-top: 3px;
 }
 
@@ -267,8 +267,8 @@ async function deletePost(p) {
   gap: 3px;
   padding: 6px 0;
   border-radius: 8px;
-  background: var(--uc-primary-container);
-  color: var(--uc-primary-strong);
+  background: var(--uc-primary);
+  color: #fff;
   font-size: 11.5px;
   font-weight: 600;
   text-decoration: none;

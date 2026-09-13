@@ -31,6 +31,31 @@
   --uc-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* Dark mode: segue automaticamente il tema del sistema operativo/browser
+   dell'utente (prefers-color-scheme), nessun interruttore manuale in app —
+   vedi il tema scuro delle schermate "2.0" nel file Figma di riferimento. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --uc-bg: #232a26;
+    --uc-surface: #313733;
+    --uc-text: #f7f4f0;
+    --uc-text-muted: #c3c3c3;
+    --uc-border: #5c5c5c;
+
+    /* In dark mode l'accento di marca diventa un arancio più acceso,
+       usato ovunque al posto del --uc-primary più tenue del tema chiaro. */
+    --uc-primary: #ff6600;
+
+    --uc-topbar-bg: #313733;
+    --uc-backdrop-gradient: linear-gradient(165deg, #1b3a30 0%, #223a47 100%);
+
+    --uc-delete-bg: #df3728;
+    --uc-delete-fg: #f7f4f0;
+
+    --uc-shadow-card: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+}
+
 body {
   background: var(--uc-bg);
   color: var(--uc-text);
