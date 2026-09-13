@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "488914278945",
+    "project_id": "sfamati",
+    "storage_bucket": "sfamati.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:488914278945:android:33506763518c50ed76e160",
+        "android_client_info": {
+          "package_name": "com.unicibo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "488914278945-dml41pq946o7rmful60m02nr32v0iqqb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.unicibo.app",
+            "certificate_hash": "db4e7066a290b8038bccc51393b01da61efdb1d8"
+          }
+        },
+        {
+          "client_id": "488914278945-7olmqoka4jtiu6lc9jj3jcpi1aukilm7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBC4d6-k35CYhmcKyP4aQUO-zfZkaM1J7k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "488914278945-7olmqoka4jtiu6lc9jj3jcpi1aukilm7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

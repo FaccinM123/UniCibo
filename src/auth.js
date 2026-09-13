@@ -5,10 +5,12 @@ import { ref } from 'vue'
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  GoogleAuthProvider, OAuthProvider, signInWithPopup,
+  GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithCredential,
   signOut, sendPasswordResetEmail, deleteUser,
   setPersistence, browserLocalPersistence, browserSessionPersistence
 } from 'firebase/auth'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { auth } from '@/firebase.js'
 
 // authReady diventa true una sola volta, alla prima risposta di Firebase
@@ -41,14 +43,38 @@ export async function signInWithEmail(email, password, rememberMe = true) {
   return cred.user
 }
 
+// Dentro l'app nativa (Capacitor/Android) non esiste una vera finestra
+// popup: signInWithPopup/signInWithRedirect perdono lo stato della sessione
+// nel WebView e falliscono con "missing initial state". Usiamo invece
+// @capacitor-firebase/authentication, che apre la UI di accesso nativa
+// (Google/Apple) e restituisce un id token — lo passiamo poi a
+// signInWithCredential per far entrare quella sessione nell'SDK web di
+// Firebase Auth usato dal resto dell'app, così authUser/onAuthStateChanged
+// continuano a funzionare invariati sia su web che nell'app nativa.
 export async function signInWithGoogle(rememberMe = true) {
   await applyPersistence(rememberMe)
+  if (Capacitor.isNativePlatform()) {
+    const result = await FirebaseAuthentication.signInWithGoogle()
+    const credential = GoogleAuthProvider.credential(result.credential?.idToken)
+    const cred = await signInWithCredential(auth, credential)
+    return cred.user
+  }
   const cred = await signInWithPopup(auth, new GoogleAuthProvider())
   return cred.user
 }
 
 export async function signInWithApple(rememberMe = true) {
   await applyPersistence(rememberMe)
+  if (Capacitor.isNativePlatform()) {
+    const result = await FirebaseAuthentication.signInWithApple()
+    const provider = new OAuthProvider('apple.com')
+    const credential = provider.credential({
+      idToken: result.credential?.idToken,
+      rawNonce: result.credential?.nonce
+    })
+    const cred = await signInWithCredential(auth, credential)
+    return cred.user
+  }
   const cred = await signInWithPopup(auth, new OAuthProvider('apple.com'))
   return cred.user
 }

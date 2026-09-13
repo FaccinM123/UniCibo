@@ -12,10 +12,11 @@
     "reset-test-data": "node scripts/reset-test-data.mjs"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^7.5.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@mdi/font": "^7.4.47",
-    "firebase": "^10.13.0",
+    "firebase": "^11.10.0",
     "vue": "^3.4.31",
     "vue-router": "^4.4.0",
     "vuetify": "^3.6.14"
