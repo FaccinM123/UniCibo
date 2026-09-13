@@ -12,6 +12,17 @@
           <button type="button" class="uc-tab" :class="{ 'uc-tab--active': mode === 'signup' }" @click="mode = 'signup'">Registrati</button>
         </div>
 
+        <div v-if="mode === 'signup'" class="uc-terms-row">
+          <v-checkbox v-model="termsAccepted" color="primary" density="compact" hide-details>
+            <template #label>
+              <span class="uc-terms-label">
+                Accetto i <a href="https://unicibo.web.app/terms.html" target="_blank" rel="noopener" @click.stop>Termini di Servizio</a>
+                e l'<a href="https://unicibo.web.app/privacy.html" target="_blank" rel="noopener" @click.stop>Informativa Privacy</a>
+              </span>
+            </template>
+          </v-checkbox>
+        </div>
+
         <form class="uc-auth-form" @submit.prevent="submitEmail">
           <v-text-field v-model="email" type="email" label="Email" variant="outlined" density="comfortable" hide-details class="mb-3" />
           <v-text-field v-model="password" type="password" label="Password" variant="outlined" density="comfortable" hide-details class="mb-1" />
@@ -31,7 +42,7 @@
             size="large"
             class="uc-pill-btn mt-3"
             :loading="loading === 'email'"
-            :disabled="!email.trim() || !password.trim()"
+            :disabled="!email.trim() || !password.trim() || (mode === 'signup' && !termsAccepted)"
           >
             {{ mode === 'signin' ? 'Accedi' : 'Crea account' }}
           </v-btn>
@@ -39,17 +50,22 @@
 
         <div class="uc-auth-divider"><span>oppure</span></div>
 
-        <v-btn block variant="outlined" size="large" class="uc-pill-btn mb-2" :loading="loading === 'google'" @click="withGoogle">
+        <v-btn
+          block variant="outlined" size="large" class="uc-pill-btn mb-2"
+          :loading="loading === 'google'"
+          :disabled="mode === 'signup' && !termsAccepted"
+          @click="withGoogle"
+        >
           <v-icon icon="mdi-google" start size="18" /> Continua con Google
         </v-btn>
-        <v-btn block variant="outlined" size="large" class="uc-pill-btn" :loading="loading === 'apple'" @click="withApple">
+        <v-btn
+          block variant="outlined" size="large" class="uc-pill-btn"
+          :loading="loading === 'apple'"
+          :disabled="mode === 'signup' && !termsAccepted"
+          @click="withApple"
+        >
           <v-icon icon="mdi-apple" start size="18" /> Continua con Apple
         </v-btn>
-
-        <p class="uc-legal-note">
-          Continuando accetti i <a href="https://unicibo.web.app/terms.html" target="_blank" rel="noopener">Termini di Servizio</a>
-          e l'<a href="https://unicibo.web.app/privacy.html" target="_blank" rel="noopener">Informativa Privacy</a>.
-        </p>
       </div>
     </div>
   </div>
@@ -63,6 +79,7 @@ const mode = ref('signin')
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(true)
+const termsAccepted = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
 const infoMessage = ref('')
@@ -212,15 +229,19 @@ async function withApple() {
 .uc-auth-divider::before, .uc-auth-divider::after {
   content: ''; flex: 1; height: 1px; background: var(--uc-border);
 }
-.uc-legal-note {
-  font-size: 11px;
-  color: var(--uc-text-muted);
-  text-align: center;
-  margin: 16px 0 0;
-  line-height: 1.5;
+.uc-terms-row {
+  margin-bottom: 6px;
 }
-.uc-legal-note a {
-  color: var(--uc-text-muted);
-  text-decoration: underline;
+.uc-terms-row :deep(.v-selection-control) {
+  min-height: auto;
+  align-items: flex-start;
+}
+.uc-terms-label {
+  font-size: 12.5px;
+  color: var(--uc-text);
+  line-height: 1.4;
+}
+.uc-terms-label a {
+  color: var(--uc-primary);
 }
 </style>
