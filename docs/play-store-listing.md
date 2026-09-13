@@ -30,7 +30,7 @@ Prima versione pubblica.
 Cibo e bevande
 
 ## Email di contatto
-marco.faccin.schio@gmail.com
+unicibo.support@gmail.com
 
 ## URL Privacy Policy
 https://unicibo.web.app/privacy.html

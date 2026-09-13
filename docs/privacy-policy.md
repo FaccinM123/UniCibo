@@ -38,8 +38,8 @@ usa come database e per l'autenticazione.
 Puoi cancellare definitivamente il tuo account e i tuoi dati in autonomia
 dall'app: apri il tuo profilo e seleziona "Elimina account". In
 alternativa, o per qualsiasi domanda sulla cancellazione, puoi scrivere a
-marco.faccin.schio@gmail.com.
+unicibo.support@gmail.com.
 
 ## Contatti
 
-Per domande su questa privacy policy: marco.faccin.schio@gmail.com.
+Per domande su questa privacy policy: unicibo.support@gmail.com.
