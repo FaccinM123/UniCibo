@@ -74,6 +74,7 @@ import { getUserId, removeJoinedGroupId } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
 import { shareOrCopy } from '@/utils/share.js'
+import { getUserProfileById } from '@/services/userProfile.js'
 
 const props = defineProps({
   groupId: { type: String, required: true }
@@ -99,9 +100,22 @@ async function shareInvite() {
   if (shareFeedback.value) setTimeout(() => { shareFeedback.value = '' }, 2500)
 }
 
+// memberNicknames è uno snapshot preso al momento dell'adesione (vedi
+// firestore.rules/README): se un membro cambia nickname dopo, quello
+// salvato nel gruppo resta quello vecchio. Qui carichiamo il nickname
+// attuale dal profilo di ognuno, che ha sempre la precedenza sullo
+// snapshot — usato solo come fallback se un profilo non è raggiungibile.
+const liveNicknames = ref({})
+
 onMounted(async () => {
   const snap = await getDoc(doc(db, 'groups', props.groupId))
   group.value = snap.exists() ? { id: snap.id, ...snap.data() } : null
+  if (group.value) {
+    const entries = await Promise.all(
+      group.value.memberIds.map(async (id) => [id, (await getUserProfileById(id))?.nickname])
+    )
+    liveNicknames.value = Object.fromEntries(entries.filter(([, nickname]) => nickname))
+  }
 })
 
 const isAdmin = computed(() => group.value?.createdBy === userId)
@@ -111,7 +125,7 @@ const members = computed(() => {
   const nicknames = group.value.memberNicknames || {}
   return group.value.memberIds.map((id) => ({
     id,
-    nickname: nicknames[id] || 'Membro',
+    nickname: liveNicknames.value[id] || nicknames[id] || 'Membro',
     isAdmin: id === group.value.createdBy,
     isSelf: id === userId
   }))
