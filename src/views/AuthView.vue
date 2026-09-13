@@ -113,7 +113,7 @@ async function withGoogle() {
     await signInWithGoogle(rememberMe.value)
   } catch (err) {
     console.error('Errore Google Sign-In:', err)
-    errorMessage.value = 'Errore con l\'accesso Google, riprova.'
+    errorMessage.value = `[debug] ${err.code || ''} ${err.message || err}`
   } finally {
     loading.value = false
   }
@@ -126,7 +126,7 @@ async function withApple() {
     await signInWithApple(rememberMe.value)
   } catch (err) {
     console.error('Errore Apple Sign-In:', err)
-    errorMessage.value = 'Errore con l\'accesso Apple, riprova.'
+    errorMessage.value = `[debug] ${err.code || ''} ${err.message || err}`
   } finally {
     loading.value = false
   }
