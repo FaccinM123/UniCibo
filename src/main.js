@@ -1,6 +1,14 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
+import { registerSW } from 'virtual:pwa-register'
+
+// Aggiorna silenziosamente al nuovo service worker non appena disponibile
+// (invece di lasciare la scheda/app aperta sul JS vecchio finché non viene
+// chiusa e riaperta manualmente — vedi vite.config.js).
+if ('serviceWorker' in navigator) {
+  const updateSW = registerSW({ onNeedRefresh: () => updateSW(true) })
+}
 
 // Vuetify
 import 'vuetify/styles'

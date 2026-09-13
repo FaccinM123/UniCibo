@@ -26,11 +26,23 @@ onAuthStateChanged(auth, (user) => {
 
 // iOS "Aggiungi a Home" (PWA standalone): niente vero window.open, quindi
 // signInWithPopup resta bloccato a metà (la promise non si risolve mai —
-// il pulsante sembra "impallato"). In questa modalità usiamo signInWithRedirect
-// (naviga verso Google e torna) invece del popup; getRedirectResult qui,
-// eseguito al caricamento del modulo, raccoglie l'esito al ritorno.
-function isStandalonePwa() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+// il pulsante sembra "impallato"). signInWithRedirect NON risolve il
+// problema su iOS: la navigazione verso Google esce dal contenitore
+// standalone in una scheda Safari separata che poi non torna in modo
+// affidabile dentro l'app (verificato dal vivo — la pagina "si chiude" senza
+// mai completare l'accesso). Qui distinguiamo quindi due casi:
+// - iOS standalone: niente redirect in-app, i pulsanti Google/Apple vengono
+//   sostituiti in AuthView.vue con l'indicazione di aprire il sito in Safari
+//   (dove popup/redirect funzionano normalmente); la sessione risultante è
+//   comunque condivisa con l'app installata, essendo lo stesso dominio.
+// - Altri contesti standalone (Android/desktop, dove il redirect funziona
+//   regolarmente): usiamo signInWithRedirect come prima.
+export function isIosStandalone() {
+  return window.navigator.standalone === true
+}
+
+function shouldUseRedirect() {
+  return !isIosStandalone() && window.matchMedia('(display-mode: standalone)').matches
 }
 
 export const redirectSignInError = ref('')
@@ -75,7 +87,7 @@ export async function signInWithGoogle(rememberMe = true) {
     const cred = await signInWithCredential(auth, credential)
     return cred.user
   }
-  if (isStandalonePwa()) {
+  if (shouldUseRedirect()) {
     await signInWithRedirect(auth, new GoogleAuthProvider())
     return null // la pagina sta per ricaricarsi verso Google
   }
@@ -95,7 +107,7 @@ export async function signInWithApple(rememberMe = true) {
     const cred = await signInWithCredential(auth, credential)
     return cred.user
   }
-  if (isStandalonePwa()) {
+  if (shouldUseRedirect()) {
     await signInWithRedirect(auth, new OAuthProvider('apple.com'))
     return null // la pagina sta per ricaricarsi verso Apple
   }

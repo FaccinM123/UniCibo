@@ -9,6 +9,13 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registrazione manuale (src/main.js) invece dello script iniettato
+      // di default: quello registra il service worker ma non forza mai un
+      // reload quando ne trova uno nuovo, quindi una scheda/app già aperta
+      // continua a eseguire il JS vecchio finché non viene chiusa e
+      // riaperta da zero — un problema specifico delle PWA iOS "Aggiungi a
+      // Home", che restano "sospese" in background invece di ricaricare.
+      injectRegister: false,
       manifest: {
         name: 'UniCibo',
         short_name: 'UniCibo',

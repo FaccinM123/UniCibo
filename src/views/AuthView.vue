@@ -50,22 +50,29 @@
 
         <div class="uc-auth-divider"><span>oppure</span></div>
 
-        <v-btn
-          block variant="outlined" size="large" class="uc-pill-btn mb-2"
-          :loading="loading === 'google'"
-          :disabled="mode === 'signup' && !termsAccepted"
-          @click="withGoogle"
-        >
-          <v-icon icon="mdi-google" start size="18" /> Continua con Google
-        </v-btn>
-        <v-btn
-          block variant="outlined" size="large" class="uc-pill-btn"
-          :loading="loading === 'apple'"
-          :disabled="mode === 'signup' && !termsAccepted"
-          @click="withApple"
-        >
-          <v-icon icon="mdi-apple" start size="18" /> Continua con Apple
-        </v-btn>
+        <template v-if="!iosStandalone">
+          <v-btn
+            block variant="outlined" size="large" class="uc-pill-btn mb-2"
+            :loading="loading === 'google'"
+            :disabled="mode === 'signup' && !termsAccepted"
+            @click="withGoogle"
+          >
+            <v-icon icon="mdi-google" start size="18" /> Continua con Google
+          </v-btn>
+          <v-btn
+            block variant="outlined" size="large" class="uc-pill-btn"
+            :loading="loading === 'apple'"
+            :disabled="mode === 'signup' && !termsAccepted"
+            @click="withApple"
+          >
+            <v-icon icon="mdi-apple" start size="18" /> Continua con Apple
+          </v-btn>
+        </template>
+        <v-alert v-else type="info" variant="tonal" density="comfortable">
+          Accesso con Google/Apple non disponibile da questa icona: apri
+          <a href="https://unicibo.web.app/" target="_blank" rel="noopener">unicibo.web.app</a>
+          in Safari, accedi lì una volta sola, poi torna qui — resterai connesso.
+        </v-alert>
       </div>
     </div>
   </div>
@@ -73,8 +80,9 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple, resetPassword, redirectSignInError } from '@/identity.js'
+import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple, resetPassword, redirectSignInError, isIosStandalone } from '@/identity.js'
 
+const iosStandalone = isIosStandalone()
 const mode = ref('signin')
 const email = ref('')
 const password = ref('')
