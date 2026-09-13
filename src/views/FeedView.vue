@@ -25,19 +25,20 @@
       <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
 
       <div v-if="!loading && !loadError && hasAnyTaggedRecipe" class="uc-tag-filter">
-        <v-chip-group v-model="filterTags" multiple column>
-          <v-chip
+        <div class="uc-chip-row">
+          <button
             v-for="opt in TAG_OPTIONS"
             :key="opt.id"
-            :value="opt.id"
-            variant="outlined"
-            filter
-            size="small"
+            type="button"
+            class="uc-tag-chip uc-tag-chip--toggle"
+            :class="{ 'uc-tag-chip--selected': filterTags.includes(opt.id) }"
+            :style="{ '--uc-tag-color': opt.color }"
+            @click="toggleFilterTag(opt.id)"
           >
             {{ opt.label }}
-          </v-chip>
-        </v-chip-group>
-        <v-btn-toggle v-if="filterTags.length > 1" v-model="filterMode" mandatory density="compact" class="mb-2">
+          </button>
+        </div>
+        <v-btn-toggle v-if="filterTags.length > 1" v-model="filterMode" mandatory density="compact" class="mt-2">
           <v-btn value="or" size="small">Almeno uno</v-btn>
           <v-btn value="and" size="small">Tutti insieme</v-btn>
         </v-btn-toggle>
@@ -78,6 +79,12 @@ const groupNamesById = ref({})
 const group = ref(null)
 const filterTags = ref([])
 const filterMode = ref('or')
+
+function toggleFilterTag(id) {
+  const i = filterTags.value.indexOf(id)
+  if (i === -1) filterTags.value.push(id)
+  else filterTags.value.splice(i, 1)
+}
 
 function handleLoadError(err) {
   console.error('Errore nel caricare il feed:', err)
@@ -262,5 +269,37 @@ watch(() => props.groupId, load)
 
 .uc-tag-filter {
   margin-bottom: 12px;
+  background: var(--uc-surface);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: var(--uc-shadow-card);
+}
+
+.uc-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uc-tag-chip {
+  border-radius: var(--uc-radius-pill);
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--uc-tag-color);
+  color: var(--uc-tag-color);
+  background: var(--uc-surface);
+}
+
+.uc-tag-chip--toggle {
+  cursor: pointer;
+  font-family: inherit;
+  border-color: var(--uc-border);
+  color: var(--uc-text-muted);
+}
+
+.uc-tag-chip--toggle.uc-tag-chip--selected {
+  border-color: var(--uc-tag-color);
+  color: var(--uc-tag-color);
 }
 </style>
