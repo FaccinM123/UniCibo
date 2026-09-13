@@ -166,8 +166,13 @@ const newRecipeLink = computed(() => {
   flex: 1;
   min-height: 0;
   /* Sfondo decorativo dietro al contenuto su ogni dimensione di schermo,
-     come nelle schermate 2.0: top bar e card restano opache sopra. */
+     come nelle schermate 2.0: top bar e card restano opache sopra.
+     attachment: fixed lo ancora alla finestra invece che al contenuto —
+     altrimenti su un feed lungo il gradiente si "esaurisce" ben prima
+     della fine (il secondo colore, quasi uniforme, riempie tutto lo
+     scroll restante e sembra sparire). */
   background: var(--uc-backdrop-gradient);
+  background-attachment: fixed;
   padding-bottom: 96px;
 }
 

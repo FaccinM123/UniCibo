@@ -1,7 +1,13 @@
 <template>
   <div v-if="recipe" class="uc-detail">
     <div class="uc-detail-hero" :class="{ 'uc-detail-hero--placeholder': !recipe.imageUrl }">
-      <img v-if="recipe.imageUrl" :src="recipe.imageUrl" :alt="recipe.title" />
+      <img
+        v-if="recipe.imageUrl"
+        :src="recipe.imageUrl"
+        :alt="recipe.title"
+        class="uc-detail-hero-img"
+        @click="lightboxOpen = true"
+      />
       <button
         type="button"
         class="uc-save-toggle"
@@ -64,6 +70,15 @@
       <h2 class="uc-label">Commenti</h2>
       <CommentList :recipe-id="id" :group-id="groupId" :live="true" />
     </section>
+
+    <Teleport to="body">
+      <div v-if="lightboxOpen" class="uc-lightbox" @click="lightboxOpen = false">
+        <button type="button" class="uc-lightbox-close" aria-label="Chiudi" @click="lightboxOpen = false">
+          <v-icon icon="mdi-close" size="22" color="white" />
+        </button>
+        <img :src="recipe.imageUrl" :alt="recipe.title" class="uc-lightbox-img" />
+      </div>
+    </Teleport>
   </div>
 
   <v-progress-linear v-else indeterminate />
@@ -86,6 +101,7 @@ const props = defineProps({
 
 const recipe = ref(null)
 const saved = ref(isRecipeSaved(props.id))
+const lightboxOpen = ref(false)
 
 function toggleSave() {
   saved.value = toggleSavedRecipeId(props.id)
@@ -133,6 +149,43 @@ const tagItems = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.uc-detail-hero-img {
+  cursor: zoom-in;
+}
+
+.uc-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.uc-lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.uc-lightbox-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .uc-detail-hero--placeholder {

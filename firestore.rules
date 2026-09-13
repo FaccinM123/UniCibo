@@ -266,7 +266,11 @@ service cloud.firestore {
                         && request.resource.data.text.size() < 2000
                         && request.resource.data.authorNickname is string
                         && request.resource.data.createdAt is timestamp;
-          allow update, delete: if false;
+          allow update: if false;
+          // Solo l'autore del commento può cancellarlo (non l'autore del post,
+          // né un admin del gruppo — coerente con "authorId" usato ovunque
+          // altrove nel file per verificare la proprietà di un contenuto).
+          allow delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
         }
       }
     }
@@ -335,7 +339,8 @@ service cloud.firestore {
                       && request.resource.data.text.size() < 2000
                       && request.resource.data.authorNickname is string
                       && request.resource.data.createdAt is timestamp;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
       }
     }
   }

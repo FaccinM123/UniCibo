@@ -4,6 +4,15 @@
       <p v-for="c in comments" :key="c.id" class="uc-comment">
         <span class="uc-comment-author">{{ c.authorNickname }}</span>
         <span>{{ c.text }}</span>
+        <button
+          v-if="c.authorId === userId"
+          type="button"
+          class="uc-comment-delete"
+          aria-label="Elimina commento"
+          @click="removeComment(c.id)"
+        >
+          <v-icon icon="mdi-delete-outline" size="14" />
+        </button>
       </p>
     </div>
     <p v-else class="uc-comment-empty">Ancora nessun commento. Sii il primo.</p>
@@ -24,7 +33,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { collection, addDoc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/firebase.js'
 import { getUserId, getNickname } from '@/identity.js'
 
@@ -43,6 +52,7 @@ function commentsRef() {
 const comments = ref([])
 const newComment = ref('')
 const posting = ref(false)
+const userId = getUserId()
 
 let unsubscribeComments = null
 
@@ -95,6 +105,20 @@ async function postComment() {
     posting.value = false
   }
 }
+
+async function removeComment(commentId) {
+  if (!confirm('Eliminare questo commento?')) return
+  try {
+    await deleteDoc(doc(commentsRef(), commentId))
+    // In modalità live l'ascoltatore rimuove già il commento da solo; in
+    // modalità non-live (feed) lo togliamo subito a mano, come per postComment.
+    if (!props.live) {
+      comments.value = comments.value.filter((c) => c.id !== commentId)
+    }
+  } catch (err) {
+    console.error('Errore nell\'eliminare il commento:', err)
+  }
+}
 </script>
 
 <style scoped>
@@ -113,6 +137,20 @@ async function postComment() {
 .uc-comment-author {
   font-weight: 700;
   margin-right: 6px;
+}
+
+.uc-comment-delete {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--uc-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .uc-comment-empty {
