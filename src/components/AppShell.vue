@@ -165,7 +165,9 @@ const newRecipeLink = computed(() => {
 .uc-content {
   flex: 1;
   min-height: 0;
-  background: var(--uc-bg);
+  /* Sfondo decorativo dietro al contenuto su ogni dimensione di schermo,
+     come nelle schermate 2.0: top bar e card restano opache sopra. */
+  background: var(--uc-backdrop-gradient);
   padding-bottom: 96px;
 }
 

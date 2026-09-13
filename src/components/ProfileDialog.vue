@@ -41,6 +41,15 @@
           <v-icon icon="mdi-open-in-new" size="18" color="var(--uc-text-muted)" />
         </a>
 
+        <button type="button" class="uc-management-link mt-2" @click="shareApp">
+          <v-icon icon="mdi-share-variant-outline" size="20" color="var(--uc-primary)" />
+          <div class="uc-management-link-text">
+            <div class="uc-management-link-title">Condividi l'app</div>
+            <div class="uc-management-link-subtitle">Invita altri a scaricare UniCibo</div>
+          </div>
+        </button>
+        <p v-if="shareFeedback" class="uc-share-feedback">{{ shareFeedback }}</p>
+
         <div class="uc-account-actions">
           <button type="button" class="uc-account-btn" @click="logout">
             <v-icon icon="mdi-logout" size="18" />
@@ -69,6 +78,7 @@ import { ref, watch } from 'vue'
 import { getUserId, getNickname, getBio, getAvatarPhoto, updateProfile, signOutUser, deleteAccount } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
+import { shareOrCopy } from '@/utils/share.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false }
@@ -85,6 +95,17 @@ const imageError = ref('')
 const fileInput = ref(null)
 const saving = ref(false)
 const deleting = ref(false)
+const shareFeedback = ref('')
+
+async function shareApp() {
+  const result = await shareOrCopy({
+    title: 'UniCibo',
+    text: 'Ricette che si cucinano davvero, tra amici e coinquilini. Scarica UniCibo:',
+    url: 'https://unicibo.web.app/scarica.html'
+  })
+  shareFeedback.value = result === 'copied' ? 'Link copiato negli appunti.' : ''
+  if (shareFeedback.value) setTimeout(() => { shareFeedback.value = '' }, 2500)
+}
 
 watch(() => props.modelValue, (open) => {
   if (open) {
@@ -234,6 +255,17 @@ async function removeAccount() {
   background: var(--uc-bg);
   border-radius: 12px;
   text-decoration: none;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.uc-share-feedback {
+  font-size: 12px;
+  color: var(--uc-secondary);
+  margin: 6px 0 0;
 }
 
 .uc-management-link-text {

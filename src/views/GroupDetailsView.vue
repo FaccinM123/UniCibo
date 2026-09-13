@@ -16,10 +16,17 @@
         <h1 class="uc-group-name">{{ group.name }}</h1>
         <p v-if="group.description" class="uc-group-description">{{ group.description }}</p>
         <p class="uc-invite-code">Codice invito <strong>{{ group.inviteCode }}</strong></p>
-        <button v-if="isAdmin" type="button" class="uc-edit-link" @click="startEditing">
-          <v-icon icon="mdi-pencil-outline" size="15" />
-          Modifica gruppo
-        </button>
+        <div class="uc-header-links">
+          <button type="button" class="uc-edit-link" @click="shareInvite">
+            <v-icon icon="mdi-share-variant-outline" size="15" />
+            Condividi invito
+          </button>
+          <button v-if="isAdmin" type="button" class="uc-edit-link" @click="startEditing">
+            <v-icon icon="mdi-pencil-outline" size="15" />
+            Modifica gruppo
+          </button>
+        </div>
+        <p v-if="shareFeedback" class="uc-share-feedback">{{ shareFeedback }}</p>
       </template>
       <template v-else>
         <v-text-field v-model="editForm.name" variant="outlined" density="comfortable" hide-details class="mt-3 mb-3" />
@@ -66,6 +73,7 @@ import { db } from '@/firebase.js'
 import { getUserId, removeJoinedGroupId } from '@/identity.js'
 import { avatarColor, avatarInitial } from '@/utils/avatar.js'
 import { fileToCompressedDataUrl } from '@/utils/image.js'
+import { shareOrCopy } from '@/utils/share.js'
 
 const props = defineProps({
   groupId: { type: String, required: true }
@@ -79,6 +87,17 @@ const editing = ref(false)
 const saving = ref(false)
 const editForm = ref({ name: '', description: '', photoUrl: '' })
 const fileInput = ref(null)
+const shareFeedback = ref('')
+
+async function shareInvite() {
+  const result = await shareOrCopy({
+    title: 'UniCibo',
+    text: `Unisciti al gruppo "${group.value.name}" su UniCibo! Codice invito: ${group.value.inviteCode}\n\nScarica l'app:`,
+    url: 'https://unicibo.web.app/scarica.html'
+  })
+  shareFeedback.value = result === 'copied' ? 'Invito copiato negli appunti.' : ''
+  if (shareFeedback.value) setTimeout(() => { shareFeedback.value = '' }, 2500)
+}
 
 onMounted(async () => {
   const snap = await getDoc(doc(db, 'groups', props.groupId))
@@ -259,6 +278,12 @@ async function removeMember(memberId) {
   letter-spacing: 0.04em;
 }
 
+.uc-header-links {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+
 .uc-edit-link {
   display: inline-flex;
   align-items: center;
@@ -271,6 +296,12 @@ async function removeMember(memberId) {
   border: none;
   cursor: pointer;
   font-family: inherit;
+}
+
+.uc-share-feedback {
+  font-size: 12px;
+  color: var(--uc-secondary);
+  margin: 6px 0 0;
 }
 
 .uc-edit-actions {
