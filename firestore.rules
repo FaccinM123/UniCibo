@@ -66,6 +66,20 @@ service cloud.firestore {
     // raggiungere un totale arbitrario (difesa in profondità, non barriera
     // assoluta: la transazione in ReactionBar.vue garantisce la correttezza
     // per un client onesto, questa regola alza il costo per uno che non lo è).
+    // Campi condivisi da entrambe le regole di creazione ricetta (in cima e
+    // di gruppo): tetti di lunghezza ragionevoli — assenti prima, un utente
+    // autenticato poteva scrivere campi arbitrariamente grandi ripetutamente
+    // (costo/storage su Firestore, non un vero furto dati) — più il
+    // controllo di tipo su imageUrl, mancante anche quello.
+    function recipeContentValid() {
+      return request.resource.data.title is string
+             && request.resource.data.title.size() > 0 && request.resource.data.title.size() < 200
+             && request.resource.data.ingredients is list && request.resource.data.ingredients.size() < 100
+             && request.resource.data.steps is list && request.resource.data.steps.size() < 200
+             && request.resource.data.authorNickname is string && request.resource.data.authorNickname.size() < 50
+             && (request.resource.data.imageUrl is string || request.resource.data.imageUrl == null);
+    }
+
     function reactionCountsValid(oldC, newC) {
       let dC = newC.cucinarlo - oldC.cucinarlo;
       let dM = newC.mangiarlo - oldC.mangiarlo;
@@ -94,7 +108,8 @@ service cloud.firestore {
                          ['nickname', 'bio', 'avatarPhoto', 'joinedGroupIds', 'createdAt']
                        )
                     && request.resource.data.nickname is string
-                    && request.resource.data.bio is string
+                    && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() < 50
+                    && request.resource.data.bio is string && request.resource.data.bio.size() < 500
                     && request.resource.data.avatarPhoto is string
                     && request.resource.data.joinedGroupIds is list
                     && request.resource.data.createdAt is timestamp;
@@ -104,7 +119,8 @@ service cloud.firestore {
       // qui impedisce di corrompere il profilo con un update parziale.
       allow update: if isOwner(uid)
                     && request.resource.data.nickname is string
-                    && request.resource.data.bio is string
+                    && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() < 50
+                    && request.resource.data.bio is string && request.resource.data.bio.size() < 500
                     && request.resource.data.avatarPhoto is string
                     && request.resource.data.joinedGroupIds is list;
       allow delete: if isOwner(uid);
@@ -156,16 +172,30 @@ service cloud.firestore {
         // Adesione: SOLO aggiungere se stessi a memberIds/memberNicknames,
         // senza perdere nessuno dei membri già presenti (il confronto è tra
         // il documento NUOVO e quello VECCHIO, non il vecchio con se stesso).
+        // Il diff su memberNicknames (mappa annidata) verifica che l'UNICA
+        // voce toccata sia la propria: senza questo, affectedKeys() sul
+        // documento vede solo che "memberNicknames è cambiato" a livello di
+        // campo, non quali chiavi al suo interno — un utente che si unisce
+        // potrebbe altrimenti alterare anche il nickname salvato di un
+        // membro già presente nella stessa scrittura.
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberNicknames'])
           && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
           && request.resource.data.memberIds.hasAll(resource.data.memberIds)
           && !resource.data.memberIds.hasAny([request.auth.uid])
-          && request.resource.data.memberIds.hasAny([request.auth.uid]))
+          && request.resource.data.memberIds.hasAny([request.auth.uid])
+          && request.resource.data.memberNicknames.diff(resource.data.memberNicknames).affectedKeys().hasOnly([request.auth.uid]))
         ||
         // Uscita/espulsione: te stesso che esci, oppure l'admin che espelle.
+        // Stessa idea sopra applicata al caso inverso: senza sapere quale
+        // uid esatto è stato rimosso (Firestore rules non ha una differenza
+        // insiemistica diretta tra liste), limitiamo la scrittura a toccare
+        // al più UNA voce di memberNicknames — coerente con "un solo membro
+        // alla volta lascia o viene espulso" ed è comunque sufficiente a
+        // impedire un'alterazione di massa degli altri nickname.
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberNicknames'])
           && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
           && resource.data.memberIds.hasAll(request.resource.data.memberIds)
+          && request.resource.data.memberNicknames.diff(resource.data.memberNicknames).affectedKeys().size() <= 1
           && (
                (resource.data.memberIds.hasAny([request.auth.uid]) && !request.resource.data.memberIds.hasAny([request.auth.uid]))
                || resource.data.createdBy == request.auth.uid
@@ -217,10 +247,7 @@ service cloud.firestore {
                             'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts',
                             'tags', 'batchId', 'createdAt']
                          )
-                      && request.resource.data.title is string
-                      && request.resource.data.ingredients is list
-                      && request.resource.data.steps is list
-                      && request.resource.data.authorNickname is string
+                      && recipeContentValid()
                       && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
                       && request.resource.data.tags is list
                       && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
@@ -242,6 +269,11 @@ service cloud.firestore {
           ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps', 'tags', 'batchId'])
             && isSignedIn() && resource.data.authorId == request.auth.uid
+            && request.resource.data.title is string
+            && request.resource.data.title.size() > 0 && request.resource.data.title.size() < 200
+            && request.resource.data.ingredients is list && request.resource.data.ingredients.size() < 100
+            && request.resource.data.steps is list && request.resource.data.steps.size() < 200
+            && (request.resource.data.imageUrl is string || request.resource.data.imageUrl == null)
             && request.resource.data.tags is list
             && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
             && (request.resource.data.batchId == null || request.resource.data.batchId is string));
@@ -295,10 +327,7 @@ service cloud.firestore {
                           'visibility', 'groupId', 'authorNickname', 'authorId', 'reactionCounts',
                           'tags', 'createdAt']
                        )
-                    && request.resource.data.title is string
-                    && request.resource.data.ingredients is list
-                    && request.resource.data.steps is list
-                    && request.resource.data.authorNickname is string
+                    && recipeContentValid()
                     && request.resource.data.reactionCounts == {'cucinarlo': 0, 'mangiarlo': 0, 'nonMiPiace': 0}
                     && request.resource.data.tags is list
                     && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine'])
@@ -316,6 +345,11 @@ service cloud.firestore {
         // modificabili dal client.
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl', 'ingredients', 'steps', 'tags'])
           && isSignedIn() && resource.data.authorId == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0 && request.resource.data.title.size() < 200
+          && request.resource.data.ingredients is list && request.resource.data.ingredients.size() < 100
+          && request.resource.data.steps is list && request.resource.data.steps.size() < 200
+          && (request.resource.data.imageUrl is string || request.resource.data.imageUrl == null)
           && request.resource.data.tags is list
           && request.resource.data.tags.hasOnly(['vegetariano', 'vegano', 'senzaGlutine']));
 
