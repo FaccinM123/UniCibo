@@ -4,7 +4,7 @@
 // importare da qui, così il diff nei consumatori resta minimo.
 import { ref, computed, watch } from 'vue'
 import {
-  authUser, authReady,
+  authUser, authReady, redirectSignInError,
   signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple,
   signOutUser, resetPassword, deleteAuthAccount
 } from '@/auth.js'
@@ -17,7 +17,7 @@ import {
   deleteUserProfile
 } from '@/services/userProfile.js'
 
-export { authUser, authReady, profile }
+export { authUser, authReady, profile, redirectSignInError }
 export { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple, signOutUser, resetPassword }
 
 // true solo dopo che il PRIMO caricamento del profilo (o la sua assenza,

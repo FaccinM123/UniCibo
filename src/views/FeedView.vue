@@ -17,7 +17,7 @@
       <h1 v-else class="uc-page-title">Feed</h1>
 
       <v-alert v-if="!groupId && !joinedGroupIds.length" type="info" variant="tonal" class="mb-4">
-        Non fai ancora parte di nessun gruppo: vedi solo le ricette consigliate.
+        Unisciti a un gruppo per vedere i post dei tuoi amici.
         <RouterLink to="/gruppi">Crea o unisciti a un gruppo</RouterLink>.
       </v-alert>
 

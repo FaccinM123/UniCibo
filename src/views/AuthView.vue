@@ -72,8 +72,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple, resetPassword } from '@/identity.js'
+import { ref, watch } from 'vue'
+import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple, resetPassword, redirectSignInError } from '@/identity.js'
 
 const mode = ref('signin')
 const email = ref('')
@@ -83,6 +83,11 @@ const termsAccepted = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
 const infoMessage = ref('')
+
+// Esito del redirect di accesso Google/Apple (vedi src/auth.js): se stai
+// tornando dal redirect con un errore, mostralo qui appena la view monta.
+if (redirectSignInError.value) errorMessage.value = redirectSignInError.value
+watch(redirectSignInError, (msg) => { if (msg) errorMessage.value = msg })
 
 function friendlyError(err) {
   const map = {
