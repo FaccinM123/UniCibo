@@ -45,6 +45,11 @@
         <v-btn block variant="outlined" size="large" class="uc-pill-btn" :loading="loading === 'apple'" @click="withApple">
           <v-icon icon="mdi-apple" start size="18" /> Continua con Apple
         </v-btn>
+
+        <p class="uc-legal-note">
+          Continuando accetti i <a href="https://unicibo.web.app/terms.html" target="_blank" rel="noopener">Termini di Servizio</a>
+          e l'<a href="https://unicibo.web.app/privacy.html" target="_blank" rel="noopener">Informativa Privacy</a>.
+        </p>
       </div>
     </div>
   </div>
@@ -206,5 +211,16 @@ async function withApple() {
 }
 .uc-auth-divider::before, .uc-auth-divider::after {
   content: ''; flex: 1; height: 1px; background: var(--uc-border);
+}
+.uc-legal-note {
+  font-size: 11px;
+  color: var(--uc-text-muted);
+  text-align: center;
+  margin: 16px 0 0;
+  line-height: 1.5;
+}
+.uc-legal-note a {
+  color: var(--uc-text-muted);
+  text-decoration: underline;
 }
 </style>
