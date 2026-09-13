@@ -19,3 +19,10 @@ scripts/serviceAccountKey.json
 # troppo grande e specifico della macchina per stare nel repo, si rigenera con
 # npm run build:android + assembleDebug (vedi README).
 public/downloads/
+
+# Chiave di firma release Android e sue password: MAI nel repo. Se persa,
+# non sarà più possibile pubblicare aggiornamenti della stessa app su Play
+# Store — conservare entrambe (file + password) in un posto sicuro e separato
+# (es. password manager), non solo su questa macchina.
+android/*.keystore
+android/keystore.properties

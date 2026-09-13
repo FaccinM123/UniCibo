@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "488914278945-p5o7aiam7n9479emgvv6adc08nn9see8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.unicibo.app",
+            "certificate_hash": "d016a3eee684c7a3a284592ef9676156a564f972"
+          }
+        },
+        {
           "client_id": "488914278945-7olmqoka4jtiu6lc9jj3jcpi1aukilm7.apps.googleusercontent.com",
           "client_type": 3
         }
