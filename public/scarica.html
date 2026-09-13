@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scarica UniCibo</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      :root { color-scheme: light; }
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 48px 20px 56px;
+        text-align: center;
+        color: #23201c;
+        background: #f7f4f0;
+      }
+      img.logo { width: 96px; height: 96px; border-radius: 22px; margin-bottom: 18px; }
+      h1 { font-size: 24px; margin: 0 0 8px; }
+      p.tagline { font-size: 14.5px; color: #6b625a; margin: 0 0 32px; line-height: 1.5; }
+      .download-btn {
+        display: inline-block;
+        background: #ff6600;
+        color: #fff;
+        font-weight: 700;
+        font-size: 16px;
+        text-decoration: none;
+        padding: 14px 32px;
+        border-radius: 999px;
+        box-shadow: 0 4px 14px rgba(255, 102, 0, 0.35);
+      }
+      .apk-note {
+        font-size: 12.5px;
+        color: #8c8078;
+        margin-top: 10px;
+      }
+      .steps {
+        text-align: left;
+        margin-top: 24px;
+        background: #fff;
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      .steps h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em; color: #8c8078; margin: 0 0 10px; }
+      .steps ol { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.7; }
+      .steps a { color: #ff6600; }
+      .steps kbd {
+        display: inline-block;
+        font: inherit;
+        background: #f0ece6;
+        border-radius: 5px;
+        padding: 1px 6px;
+        font-weight: 600;
+      }
+      .section-divider {
+        margin-top: 40px;
+        padding-top: 4px;
+        border-top: 1px solid #e6e0d8;
+      }
+      .section-divider .section-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #23201c;
+        margin: 20px 0 0;
+      }
+      footer { margin-top: 32px; font-size: 12px; color: #8c8078; }
+      footer a { color: #8c8078; }
+    </style>
+  </head>
+  <body>
+    <img class="logo" src="/icons/icon-512.png" alt="UniCibo" />
+    <h1>UniCibo</h1>
+    <p class="tagline">Ricette che si cucinano davvero, tra amici e coinquilini.<br />Scarica l'app per Android.</p>
+
+    <a class="download-btn" href="https://github.com/FaccinM123/UniCibo/releases/download/v1.0.0-debug/unicibo.apk">Scarica l'APK</a>
+    <p class="apk-note">Android · circa 8&nbsp;MB · installazione diretta, non serve il Play Store</p>
+
+    <div class="steps">
+      <h2>Come installarla</h2>
+      <ol>
+        <li>Tocca "Scarica l'APK" qui sopra dal telefono.</li>
+        <li>Apri il file scaricato: Android chiederà di autorizzare "installa da sorgenti sconosciute" per il browser — concedi il permesso.</li>
+        <li>Conferma l'installazione. Al primo avvio potrai accedere con email, Google o Apple.</li>
+      </ol>
+    </div>
+
+    <div class="section-divider">
+      <p class="section-title">Hai un iPhone?</p>
+      <p class="tagline" style="margin: 6px 0 18px;">
+        Apple non permette di installare app scaricandole da un sito.
+        UniCibo funziona comunque come un'app vera aggiungendola alla
+        schermata Home direttamente da Safari — nessun file da scaricare.
+      </p>
+      <div class="steps">
+        <h2>Come aggiungerla dalla Home</h2>
+        <ol>
+          <li>Apri <a href="/">unicibo.web.app</a> con <strong>Safari</strong> (non funziona da Chrome o altri browser su iOS).</li>
+          <li>Tocca l'icona <strong>Condividi</strong> in basso (il quadrato con la freccia verso l'alto).</li>
+          <li>Scorri il menù e tocca <strong>"Aggiungi alla schermata Home"</strong>, poi conferma con <kbd>Aggiungi</kbd> in alto a destra.</li>
+          <li>L'icona di UniCibo compare sulla Home: apre l'app a schermo intero, senza barra degli indirizzi.</li>
+        </ol>
+      </div>
+    </div>
+
+    <footer>
+      Vuoi usarla dal browser invece (anche su Android o computer)? Vai su <a href="/">unicibo.web.app</a>.<br />
+      <a href="/privacy.html">Privacy Policy</a>
+    </footer>
+  </body>
+</html>

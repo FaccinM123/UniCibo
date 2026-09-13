@@ -14,3 +14,8 @@ scripts/serviceAccountKey.json
 # stato di sessione locale degli strumenti, non del progetto
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# APK generato in locale per la pagina di download diretto (public/scarica.html):
+# troppo grande e specifico della macchina per stare nel repo, si rigenera con
+# npm run build:android + assembleDebug (vedi README).
+public/downloads/
