@@ -80,24 +80,33 @@ export async function signInWithEmail(email, password, rememberMe = true) {
 // Firebase Auth usato dal resto dell'app, così authUser/onAuthStateChanged
 // continuano a funzionare invariati sia su web che nell'app nativa.
 export async function signInWithGoogle(rememberMe = true) {
-  await applyPersistence(rememberMe)
   if (Capacitor.isNativePlatform()) {
+    await applyPersistence(rememberMe)
     const result = await FirebaseAuthentication.signInWithGoogle()
     const credential = GoogleAuthProvider.credential(result.credential?.idToken)
     const cred = await signInWithCredential(auth, credential)
     return cred.user
   }
   if (shouldUseRedirect()) {
+    await applyPersistence(rememberMe)
     await signInWithRedirect(auth, new GoogleAuthProvider())
     return null // la pagina sta per ricaricarsi verso Google
   }
+  // Popup: NIENTE await prima di questa chiamata. Safari collega la finestra
+  // popup al gesto dell'utente solo se window.open (dentro signInWithPopup)
+  // parte in modo sincrono dal click — un solo await prima (es. su
+  // applyPersistence) rompe quel collegamento e il popup viene bloccato
+  // (auth/popup-blocked, verificato dal vivo). browserLocalPersistence è già
+  // il default di Firebase Auth, quindi non serve attenderlo quando
+  // rememberMe è true; lo si applica comunque, solo senza bloccare il popup.
+  applyPersistence(rememberMe)
   const cred = await signInWithPopup(auth, new GoogleAuthProvider())
   return cred.user
 }
 
 export async function signInWithApple(rememberMe = true) {
-  await applyPersistence(rememberMe)
   if (Capacitor.isNativePlatform()) {
+    await applyPersistence(rememberMe)
     const result = await FirebaseAuthentication.signInWithApple()
     const provider = new OAuthProvider('apple.com')
     const credential = provider.credential({
@@ -108,9 +117,11 @@ export async function signInWithApple(rememberMe = true) {
     return cred.user
   }
   if (shouldUseRedirect()) {
+    await applyPersistence(rememberMe)
     await signInWithRedirect(auth, new OAuthProvider('apple.com'))
     return null // la pagina sta per ricaricarsi verso Apple
   }
+  applyPersistence(rememberMe) // vedi commento sopra in signInWithGoogle
   const cred = await signInWithPopup(auth, new OAuthProvider('apple.com'))
   return cred.user
 }
